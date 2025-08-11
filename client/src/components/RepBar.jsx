@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { usersApi } from '../api';
+
 
 export default function RepBar({ onChange }) {
   const [reps, setReps] = useState([]);

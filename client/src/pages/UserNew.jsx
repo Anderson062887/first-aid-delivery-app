@@ -1,46 +1,45 @@
 import { useState } from 'react';
-import { usersApi } from '../api';
+import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { usersApi } from '../api';
+
 
 export default function UserNew(){
   const nav = useNavigate();
-  const [form, setForm] = useState({ name:'', email:'', role:'rep', active:true });
-  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [rep, setRep] = useState(true);
+  const [admin, setAdmin] = useState(false);
   const [err, setErr] = useState('');
 
-  function update(e){
-    const { name, value, type, checked } = e.target;
-    setForm(f=>({...f, [name]: type==='checkbox'? checked : value}));
-  }
-
-  async function submit(e){
-    e.preventDefault();
-    setSaving(true); setErr('');
-    try {
-      await usersApi.create(form);
+  async function submit(){
+    try{
+      const roles = [];
+      if (rep) roles.push('rep');
+      if (admin) roles.push('admin');
+      await api.users.create({ name, email, roles, active: true });
       nav('/users');
-    } catch(e){ setErr(String(e.message||e)); }
-    finally{ setSaving(false); }
+    }catch(e){ setErr(String(e.message||e)); }
   }
 
   return (
-    <div>
+    <div className="card" style={{ display:'grid', gap:12 }}>
       <h2>New User</h2>
-      {err && <div style={{color:'red', marginBottom:12}}>{err}</div>}
-      <form onSubmit={submit} style={{display:'grid', gap:12, maxWidth:420}}>
-        <label>Name<input name="name" required value={form.name} onChange={update}/></label>
-        <label>Email<input name="email" value={form.email} onChange={update}/></label>
-        <label>Role
-          <select name="role" value={form.role} onChange={update}>
-            <option value="rep">rep</option>
-            <option value="admin">admin</option>
-          </select>
-        </label>
-        <label style={{display:'flex', alignItems:'center', gap:8}}>
-          <input type="checkbox" name="active" checked={form.active} onChange={update}/> Active
-        </label>
-        <button className="btn primary" disabled={saving}>{saving?'Saving…':'Create User'}</button>
-      </form>
+      {err && <div style={{color:'red'}}>{err}</div>}
+      <div>
+        <label>Name</label>
+        <input className="input" value={name} onChange={e=>setName(e.target.value)} />
+      </div>
+      <div>
+        <label>Email</label>
+        <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />
+      </div>
+      <div className="row" style={{ gap:16 }}>
+        <label><input type="checkbox" checked={rep} onChange={e=>setRep(e.target.checked)} /> Rep</label>
+        <label><input type="checkbox" checked={admin} onChange={e=>setAdmin(e.target.checked)} /> Admin</label>
+      </div>
+      <button className="btn primary" onClick={submit}>Create</button>
     </div>
   );
 }
+

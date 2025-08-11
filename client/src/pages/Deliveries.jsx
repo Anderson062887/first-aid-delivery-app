@@ -180,7 +180,7 @@ export default function Deliveries(){
                 <th>Location</th>
                 <th>Box</th>
                 <th>Lines</th>
-                <th>Visit Outcome</th> {/* NEW */}
+                <th>Visit Outcome</th> 
                 <th>Total</th>
               </tr>
             </thead>

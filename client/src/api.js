@@ -58,14 +58,29 @@ export const api = {
 };
 
 export const usersApi = {
-  list: () => fetch('/api/users').then(r=>r.json()),
+  list: () => fetch('/api/users').then(r => r.json()),
+
   create: (data) => fetch('/api/users', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   }).then(async r => {
-    if(!r.ok) throw new Error((await r.json()).error || 'User create failed');
+    if (!r.ok) throw new Error((await r.json()).error || 'User create failed');
     return r.json();
-  })
+  }),
+
+patch: async (id, data) => {
+  const res = await fetch(`/api/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(()=> '');
+    throw new Error(`User update failed (${res.status}): ${text.slice(0,120)}`);
+  }
+  return res.json().catch(()=> ({}));
+},
 };
 
 export const locationsApi = {
