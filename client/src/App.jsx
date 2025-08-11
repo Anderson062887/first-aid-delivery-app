@@ -13,6 +13,7 @@ import LocationNew from './pages/LocationNew.jsx'
 import VisitStart from './pages/VisitStart.jsx'
 import Visit from './pages/Visit.jsx'
 
+
 export default function App(){
   return (
     <>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { useSearchParams } from 'react-router-dom';
+import Badge from '../components/Badge.jsx';
 
 function useQueryState() {
   const [sp, setSp] = useSearchParams();
@@ -17,11 +18,11 @@ function useQueryState() {
 }
 
 export default function Deliveries(){
-  const { sp, get, setMany } = useQueryState();
+  const { get, setMany } = useQueryState();
 
-  // Filters from URL (so refresh keeps state)
+  // Filters from URL
   const [location, setLocation] = useState(get('location'));
-  const [from, setFrom]         = useState(get('from'));   // YYYY-MM-DD
+  const [from, setFrom]         = useState(get('from'));
   const [to, setTo]             = useState(get('to'));
   const [repId, setRepId]       = useState(get('repId'));
   const [repName, setRepName]   = useState(get('repName'));
@@ -32,26 +33,26 @@ export default function Deliveries(){
   const [locations, setLocations] = useState([]);
   const [reps, setReps] = useState([]);
 
-  // Data
-  const [rows, setRows] = useState([]);
+  // Data + state
+  const [rows, setRows] = useState([]); 
   const [pageInfo, setPageInfo] = useState({ page:1, limit:25, total:0, hasMore:false });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
-  // Load dropdowns (locations, reps)
+  // Load dropdowns
   useEffect(() => {
     api.locations.list().then(setLocations).catch(console.error);
     fetch('/api/users').then(r=>r.json()).then(users => {
-      setReps(users.filter(u => u.active)); // show active users
+      setReps((users||[]).filter(u => u.active));
     }).catch(console.error);
   }, []);
 
-  // Whenever any filter or pagination changes, sync to URL
+  // Sync URL with filters/pagination
   useEffect(() => {
     setMany({ location, from, to, repId, repName, page, limit });
   }, [location, from, to, repId, repName, page, limit]);
 
-  // Build filter object for API
+  // Build filters for API
   const filters = useMemo(() => {
     const f = { page, limit };
     if (location) f.location = location;
@@ -67,17 +68,19 @@ export default function Deliveries(){
     let cancelled = false;
     setLoading(true); setErr('');
     api.deliveries.list(filters)
-      .then(({ data, pageInfo }) => {
+      .then((resp) => {
         if (cancelled) return;
-        setRows(data);
-        setPageInfo(pageInfo);
+        const data = resp?.data ?? (Array.isArray(resp) ? resp : []);
+        const info = resp?.pageInfo ?? { page, limit, total: data.length, hasMore: false };
+        setRows(Array.isArray(data) ? data : []);
+        setPageInfo(info);
       })
       .catch(e => !cancelled && setErr(String(e?.message || e)))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [filters]);
+  }, [filters, page, limit]);
 
-  // Clear repName if repId is chosen (repId wins)
+  // Clear repName if repId chosen
   useEffect(() => {
     if (repId && repName) setRepName('');
   }, [repId]);
@@ -91,7 +94,15 @@ export default function Deliveries(){
   function prevPage(){ setPage(p => Math.max(1, p - 1)); }
   function nextPage(){ if (pageInfo.hasMore) setPage(p => p + 1); }
 
-  const totalAmount = rows.reduce((s,r) => s + Number(r.total || 0), 0);
+  const totalAmount = Array.isArray(rows) ? rows.reduce((s,r) => s + Number(r.total || 0), 0) : 0;
+
+  function outcomeKind(o){
+    if (o === 'completed') return 'completed';
+    if (o === 'partial') return 'partial';
+    if (o === 'no_access') return 'no_access';
+    if (o === 'skipped') return 'skipped';
+    return 'default';
+  }
 
   return (
     <div>
@@ -106,7 +117,6 @@ export default function Deliveries(){
               {locations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
             </select>
           </div>
-
           <div>
             <label>From (date)</label>
             <input className="input" type="date" value={from} onChange={e=>{ setFrom(e.target.value); setPage(1); }} />
@@ -125,7 +135,6 @@ export default function Deliveries(){
               {reps.map(u => <option key={u._id} value={u._id}>{u.name} ({u.role})</option>)}
             </select>
           </div>
-
           <div>
             <label>Rep name contains</label>
             <input
@@ -136,7 +145,6 @@ export default function Deliveries(){
               disabled={!!repId}
             />
           </div>
-
           <div>
             <label>Page size</label>
             <select className="input" value={limit} onChange={e=>{ setLimit(Number(e.target.value)); setPage(1); }}>
@@ -172,6 +180,7 @@ export default function Deliveries(){
                 <th>Location</th>
                 <th>Box</th>
                 <th>Lines</th>
+                <th>Visit Outcome</th> {/* NEW */}
                 <th>Total</th>
               </tr>
             </thead>
@@ -188,6 +197,20 @@ export default function Deliveries(){
                         {l.item?.name || 'Item'} × {l.quantity} {l.packaging} @ ${Number(l.unitPrice).toFixed(2)} = ${Number(l.lineTotal).toFixed(2)}
                       </div>
                     ))}
+                  </td>
+                  <td>
+                    {r.visit?.outcome ? (
+                      <div>
+                        <Badge kind={outcomeKind(r.visit.outcome)}>
+                          {r.visit.outcome.replace('_',' ')}
+                        </Badge>
+                        {r.visit?.note && (
+                          <div style={{ marginTop:4, fontSize:12, opacity:.8 }}>
+                            <em>Note:</em> {r.visit.note}
+                          </div>
+                        )}
+                      </div>
+                    ) : <span style={{ opacity:.6 }}>—</span>}
                   </td>
                   <td>${Number(r.total).toFixed(2)}</td>
                 </tr>
@@ -207,4 +230,5 @@ export default function Deliveries(){
     </div>
   );
 }
+
 

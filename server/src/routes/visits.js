@@ -5,6 +5,41 @@ import Delivery from '../models/Delivery.js';
 
 const r = Router();
 
+/**
+ * GET /api/visits
+ * Query (all optional):
+ *  - location: ObjectId      -> filter by location
+ *  - rep: ObjectId           -> filter by rep
+ *  - from: YYYY-MM-DD        -> startedAt >= from (00:00)
+ *  - to:   YYYY-MM-DD        -> startedAt <= to   (23:59)
+ *  - limit: number           -> default 10
+ */
+r.get('/', async (req, res) => {
+  const { location, rep, from, to } = req.query;
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit ?? '10', 10)));
+
+  const q = {};
+  if (location) q.location = location;
+  if (rep) q.rep = rep;
+
+  const parseStart = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(0,0,0,0); return dt; };
+  const parseEnd   = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(23,59,59,999); return dt; };
+  const fromDt = from ? parseStart(from) : null;
+  const toDt   = to   ? parseEnd(to)     : null;
+  if (fromDt || toDt) {
+    q.startedAt = {};
+    if (fromDt) q.startedAt.$gte = fromDt;
+    if (toDt)   q.startedAt.$lte = toDt;
+  }
+
+  const list = await Visit.find(q)
+    .sort({ startedAt: -1, _id: -1 })
+    .limit(limit)
+    .populate('rep location');
+
+  res.json(list);
+});
+
 // Start (or reuse) today's open visit for a rep+location
 r.post('/', async (req,res)=>{
   const { rep, location } = req.body;
@@ -23,45 +58,60 @@ r.post('/', async (req,res)=>{
   res.status(201).json(v);
 });
 
-// Get visit + per-box coverage
+// Get visit + per-box coverage for that location
 r.get('/:id', async (req,res)=>{
   const v = await Visit.findById(req.params.id).populate('rep location');
   if(!v) return res.sendStatus(404);
-
   const boxes = await Box.find({ location: v.location });
   const deliveries = await Delivery.find({ visit: v._id });
-
   const covered = new Set(deliveries.map(d=> String(d.box)));
   const coverage = boxes.map(b => ({
     boxId: b._id, label: b.label, size: b.size, covered: covered.has(String(b._id))
   }));
-
   res.json({ visit: v, boxes: coverage });
 });
 
-// Submit only if every box has at least one delivery in this visit
+r.patch('/:id/note', async (req, res) => {
+  const v = await Visit.findById(req.params.id);
+  if (!v) return res.sendStatus(404);
+  v.note = String(req.body?.note || '');
+  await v.save();
+  res.json({ ok: true, visit: v });
+});
+
+// Submit only if every box has at least one delivery for this visit
 r.post('/:id/submit', async (req,res)=>{
+  const { outcome = 'completed', note } = req.body || {};
   const v = await Visit.findById(req.params.id);
   if(!v) return res.sendStatus(404);
   if(v.status === 'submitted') return res.json(v);
 
-  const boxes = await Box.find({ location: v.location });
-  const deliveries = await Delivery.find({ visit: v._id });
+  if (note !== undefined) v.note = String(note || '');
 
-  const covered = new Set(deliveries.map(d=> String(d.box)));
-  const missing = boxes.filter(b => !covered.has(String(b._id)));
+  const allowed = ['completed','partial','no_access','skipped'];
+  if (!allowed.includes(outcome)) {
+    return res.status(400).json({ error: `Invalid outcome. Use one of: ${allowed.join(', ')}` });
+  }
 
-  if(missing.length){
-    return res.status(400).json({
-      error: 'All boxes must be refilled before submitting',
-      missingBoxes: missing.map(b => ({ id: b._id, label: b.label }))
-    });
+  // Only enforce coverage if outcome is "completed"
+  if (outcome === 'completed') {
+    const boxes = await Box.find({ location: v.location });
+    const deliveries = await Delivery.find({ visit: v._id });
+    const covered = new Set(deliveries.map(d=> String(d.box)));
+    const missing = boxes.filter(b => !covered.has(String(b._id)));
+    if(missing.length){
+      return res.status(400).json({
+        error: 'All boxes must be refilled before submitting a COMPLETED visit',
+        missingBoxes: missing.map(b => ({ id: b._id, label: b.label }))
+      });
+    }
   }
 
   v.status = 'submitted';
+  v.outcome = outcome;
   v.submittedAt = new Date();
   await v.save();
   res.json(v);
 });
-
 export default r;
+

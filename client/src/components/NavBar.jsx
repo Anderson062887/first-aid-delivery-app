@@ -14,7 +14,7 @@ export default function NavBar(){
           <NavLink to="/users">Users</NavLink>
           <NavLink to="/users/new">New User</NavLink>
           <NavLink to="/locations/new">New Location</NavLink>
-          <NavLink to="/visits/start">Start Visit</NavLink>
+          {/* <NavLink to="/visits/start">Start Visit</NavLink> */}
 
       </nav>
     </header>

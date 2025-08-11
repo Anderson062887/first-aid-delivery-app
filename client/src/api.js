@@ -14,11 +14,21 @@ async function http(path, opts = {}) {
 export const api = {
   health: () => http('/health'),
   items: {
-    list: () => http('/items'),
+  list: async () => {
+    const res = await fetch('/api/items');
+    if (!res.ok) throw new Error('Failed to load items');
+    return res.json();
+  },
     create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),
   },
   locations: {
-    list: () => http('/locations'),
+    list: async (q = '') => {
+    const params = new URLSearchParams();
+    if (q && q.trim()) params.set('q', q.trim());
+    const res = await fetch(`/api/locations?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to load locations');
+    return res.json();
+  },
     create: (data) => http('/locations', { method: 'POST', body: JSON.stringify(data) }),
   },
   boxes: {
@@ -59,7 +69,13 @@ export const usersApi = {
 };
 
 export const locationsApi = {
-  create: (data) => fetch('/api/locations', {
+   list: async (q = '') => {
+    const params = new URLSearchParams();
+    if (q && q.trim()) params.set('q', q.trim());
+    const res = await fetch(`/api/locations?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to load locations');
+    return res.json();
+  },create: (data) => fetch('/api/locations', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(data)
   }).then(async r => {
@@ -76,8 +92,23 @@ export const visitApi = {
 
   get: (id) => fetch(`/api/visits/${id}`).then(async r => { if(!r.ok) throw new Error('not found'); return r.json(); }),
 
-  submit: (id) => fetch(`/api/visits/${id}/submit`, { method:'POST' })
-    .then(async r => { if(!r.ok) throw new Error((await r.json()).error || 'submit failed'); return r.json(); }),
+  submit: (id, body = {}) => fetch(`/api/visits/${id}/submit`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body) // <-- sends { outcome, note }
+  }).then(async r => { if(!r.ok) throw new Error((await r.json()).error || 'submit failed'); return r.json(); }),
+
+ setNote: async (id, note = '') => {
+    const res = await fetch(`/api/visits/${id}/note`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Note save failed (${res.status}): ${text.slice(0, 120)}`);
+    }
+    return res.json().catch(() => ({ ok: true })); // be lenient
+  },
 };
 
 

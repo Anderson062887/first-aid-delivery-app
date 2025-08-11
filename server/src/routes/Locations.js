@@ -6,8 +6,22 @@ const r = Router();
 
 /** List locations */
 r.get('/', async (req, res) => {
-  const list = await Location.find().sort('name');
-  res.json(list);
+  const { q } = req.query;
+console.log('GET /api/locations q=', req.query.q);
+  const query = {};
+  if (q && String(q).trim()) {
+    const rx = new RegExp(String(q).trim(), 'i');
+    query.$or = [
+      { name: rx },
+      { 'address.street': rx },
+      { 'address.city': rx },
+      { 'address.state': rx },
+      { 'address.zip': rx },
+    ];
+  }
+
+  const locations = await Location.find(query).sort({ name: 1 });
+  res.json(locations);
 });
 
 /**
