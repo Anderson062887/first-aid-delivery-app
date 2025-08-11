@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { api } from '../api';
-import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../api';
-
+import { useNavigate } from 'react-router-dom';
 
 export default function UserNew(){
   const nav = useNavigate();
@@ -17,7 +15,7 @@ export default function UserNew(){
       const roles = [];
       if (rep) roles.push('rep');
       if (admin) roles.push('admin');
-      await api.users.create({ name, email, roles, active: true });
+      await usersApi.create({ name, email, roles, active: true });
       nav('/users');
     }catch(e){ setErr(String(e.message||e)); }
   }
@@ -42,4 +40,5 @@ export default function UserNew(){
     </div>
   );
 }
+
 
