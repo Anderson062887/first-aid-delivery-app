@@ -53,7 +53,12 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch deliveries');
     return res.json(); // { data, pageInfo, filters }
   },
-    create: (payload) => http('/deliveries', { method: 'POST', body: JSON.stringify(payload) })
+    create: (payload) => http('/deliveries', { method: 'POST', body: JSON.stringify(payload) }),
+    one: async (id) => {
+      const res = await fetch(`/api/deliveries/${id}`);
+      if (!res.ok) throw new Error('Failed to load delivery');
+      return res.json();
+    }
   }
 };
 

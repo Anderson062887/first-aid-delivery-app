@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 
 function useQueryState() {
@@ -179,7 +179,7 @@ export default function Deliveries(){
                 <th>Rep</th>
                 <th>Location</th>
                 <th>Box</th>
-                <th>Lines</th>
+                <th>Details</th>
                 <th>Visit Outcome</th> 
                 <th>Total</th>
               </tr>
@@ -192,11 +192,14 @@ export default function Deliveries(){
                   <td>{r.location?.name || '—'}</td>
                   <td>{r.box?.label || '—'}</td>
                   <td>
-                    {(r.lines||[]).map((l, i) => (
+                    {/* {(r.lines||[]).map((l, i) => (
                       <div key={i}>
                         {l.item?.name || 'Item'} × {l.quantity} {l.packaging} @ ${Number(l.unitPrice).toFixed(2)} = ${Number(l.lineTotal).toFixed(2)}
                       </div>
-                    ))}
+                    ))} */}
+                    
+                    <Link to={`/deliveries/${r._id}`}>View details</Link>
+                 
                   </td>
                   <td>
                     {r.visit?.outcome ? (

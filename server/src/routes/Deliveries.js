@@ -150,5 +150,48 @@ r.post('/', async (req, res) => {
   }
 });
 
+
+// r.get('/:id', async (req, res) => {
+//   try {
+//     const delivery = await Delivery.findById(req.params.id)
+//       // .populate('rep', 'name') // if you have reps
+//       .populate('location', 'name address')
+//       .populate('lines.item', 'name price'); // populate items in lines
+
+//     if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
+
+//     res.json(delivery);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: 'Failed to get delivery' });
+//   }
+// });
+
+r.get('/:id', async (req, res) => {
+  try {
+    const d = await Delivery.findById(req.params.id)
+      // location on the delivery
+      .populate({ path: 'location', select: 'name address' })
+      // box on the delivery (so the detail page can show label + size)
+      .populate({ path: 'box', select: 'label size location' })
+      // each line's item
+      .populate({ path: 'lines.item', select: 'name pricePerPack packaging unitsPerPack' })
+      // visit -> rep + location (rep is on Visit, not on Delivery)
+      .populate({
+        path: 'visit',
+        populate: [
+          { path: 'rep', select: 'name roles active' },
+          { path: 'location', select: 'name' },
+        ],
+      });
+
+    if (!d) return res.status(404).json({ error: 'Delivery not found' });
+    res.json(d);
+  } catch (err) {
+    console.error('Get delivery failed:', err);
+    res.status(500).json({ error: 'Failed to get delivery' });
+  }
+});
+
 export default r;
 
