@@ -15,6 +15,22 @@ export default function Locations(){
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
 
+  // helper to fetch last N visits for a location (supports both API shapes)
+  async function fetchRecentVisitsForLocation(locationId, limit = 5) {
+    const res = await fetch(`/api/visits?location=${encodeURIComponent(locationId)}&limit=${limit}`, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!res.ok) throw new Error('Failed to load recent visits');
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+    rows.sort((a, b) => {
+      const ta = new Date(a.submittedAt || a.startedAt || a.createdAt || 0).getTime();
+      const tb = new Date(b.submittedAt || b.startedAt || b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+    return rows;
+  }
+
   // Debounce input -> search (300ms)
   useEffect(() => {
     const t = setTimeout(() => setSearch(input.trim()), 300);
@@ -32,15 +48,12 @@ export default function Locations(){
         if (cancelled) return;
         setLocations(locs);
 
-        // fetch last 5 visits per location
+        // fetch last 2 visits per location
         const entries = await Promise.all(
           (locs || []).map(async (loc) => {
             try {
-              const res = await fetch(`/api/visits?location=${encodeURIComponent(loc._id)}&limit=2`, {
-                headers: { 'Cache-Control': 'no-cache' }
-              });
-              const data = await res.json();
-              return [loc._id, Array.isArray(data) ? data : []];
+              const visits = await fetchRecentVisitsForLocation(loc._id, 2);
+              return [loc._id, visits];
             } catch {
               return [loc._id, []];
             }
@@ -112,9 +125,6 @@ export default function Locations(){
                   {loc.address.state ? `, ${loc.address.state}` : ''} {loc.address.zip || ''}
                 </div>
               )}
-              {/* <div style={{ opacity:.8 }}>
-                Boxes: {loc.boxCount ?? '—'}
-              </div> */}
 
               <div style={{ display:'flex', gap:8, marginTop:6 }}>
                 <button className="btn" onClick={() => startVisit(loc._id)} disabled={!repId}>
@@ -125,7 +135,6 @@ export default function Locations(){
                 </Link>
               </div>
 
-              {/* Recent visits list with outcome + note */}
               <div style={{ marginTop:8 }}>
                 <div style={{ fontWeight:600, marginBottom:4 }}>Recent visits</div>
                 {visits.length === 0 && <div style={{ opacity:.8 }}>No visits yet.</div>}
@@ -135,16 +144,10 @@ export default function Locations(){
                       <li key={v._id} style={{ marginBottom:2, listStyle:'disc' }}>
                         <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
                           <span title={new Date(v.startedAt).toLocaleString()}>
-                            {new Date(v.startedAt).toLocaleDateString()}
+                            {new Date(v.startedAt || v.submittedAt || v.createdAt).toLocaleDateString()}
                           </span>
                           <span>— {v.rep?.name || 'Unknown rep'}</span>
                           {v.outcome && <Badge kind={outcomeKind(v.outcome)}>{v.outcome.replace('_',' ')}</Badge>}
-                          {/* <span style={{ opacity:.7 }}>{v.status}</span> */}
-                          {/* {v.submittedAt && (
-                            <span style={{ opacity:.7 }}>
-                              (submitted {new Date(v.submittedAt).toLocaleDateString()})
-                            </span>
-                          )} */}
                         </div>
                         {v.note && (
                           <div style={{ marginTop:2, fontSize:12, opacity:.85 }}>
@@ -163,6 +166,7 @@ export default function Locations(){
     </div>
   );
 }
+
 
 
 

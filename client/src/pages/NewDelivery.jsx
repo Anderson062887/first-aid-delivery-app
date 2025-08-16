@@ -133,7 +133,7 @@ export default function NewDelivery(){
       <Cart lines={lines} onRemove={removeLine} />
 
       <div className="flex" style={{justifyContent:'flex-end'}}>
-        <button className="btn primary" onClick={submit}>Submit Delivery</button>
+        <button className="btn primary" onClick={submit}>Submit box</button>
       </div>
     </div>
   )

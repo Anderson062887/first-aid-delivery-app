@@ -13,6 +13,7 @@ import LocationNew from './pages/LocationNew.jsx'
 import VisitStart from './pages/VisitStart.jsx'
 import Visit from './pages/Visit.jsx'
 import DeliveryDetail from './pages/DeliveryDetail.jsx';
+import DeliveryVisitDetail from './pages/DeliveryVisitDetail.jsx';
 
 
 export default function App(){
@@ -27,6 +28,7 @@ export default function App(){
           <Route path="/deliveries" element={<Deliveries/>} />
           <Route path="/deliveries/new" element={<NewDelivery/>} />
           <Route path="/deliveries/:id" element={<DeliveryDetail />} />
+          <Route path="/deliveries/visit/:visitId" element={<DeliveryVisitDetail/>} />
           <Route path="/items" element={<Items/>} />
           <Route path="/items/new" element={<ItemNew/>} />
           <Route path="/users" element={<Users/>} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const money = (n) => Number(n || 0).toFixed(2);
 const fmtAddress = (addr) => {
@@ -12,6 +13,7 @@ export default function DeliveryDetail(){
   const { id } = useParams();
   const [delivery, setDelivery] = useState(null);
   const [err, setErr] = useState('');
+    const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +90,12 @@ export default function DeliveryDetail(){
 
       {delivery.visit?._id && (
         <div className="card">
-          <Link className="btn" to={`/visits/${delivery.visit._id}`}>Go to Visit</Link>
+         <button
+            className="btn"
+            onClick={() => navigate(-1)} // Go back to previous page
+          >
+            Back
+            </button>
         </div>
       )}
     </div>

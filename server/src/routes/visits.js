@@ -14,30 +14,77 @@ const r = Router();
  *  - to:   YYYY-MM-DD        -> startedAt <= to   (23:59)
  *  - limit: number           -> default 10
  */
+// r.get('/', async (req, res) => {
+//   const { location, rep, from, to } = req.query;
+//   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit ?? '10', 10)));
+
+//   const q = {};
+//   if (location) q.location = location;
+//   if (rep) q.rep = rep;
+
+//   const parseStart = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(0,0,0,0); return dt; };
+//   const parseEnd   = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(23,59,59,999); return dt; };
+//   const fromDt = from ? parseStart(from) : null;
+//   const toDt   = to   ? parseEnd(to)     : null;
+//   if (fromDt || toDt) {
+//     q.startedAt = {};
+//     if (fromDt) q.startedAt.$gte = fromDt;
+//     if (toDt)   q.startedAt.$lte = toDt;
+//   }
+
+//   const list = await Visit.find(q)
+//     .sort({ startedAt: -1, _id: -1 })
+//     .limit(limit)
+//     .populate('rep location');
+
+//   res.json(list);
+// });
+
 r.get('/', async (req, res) => {
-  const { location, rep, from, to } = req.query;
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit ?? '10', 10)));
+  try {
+    const { location, repId, from, to } = req.query;
+    const limit = Math.max(1, Math.min(200, parseInt(req.query.limit ?? '5', 10)));
 
-  const q = {};
-  if (location) q.location = location;
-  if (rep) q.rep = rep;
+    const q = {};
+    if (location) q.location = location;
+    if (repId) q.rep = repId;
 
-  const parseStart = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(0,0,0,0); return dt; };
-  const parseEnd   = (d) => { const dt = new Date(d); if (isNaN(dt)) return null; dt.setHours(23,59,59,999); return dt; };
-  const fromDt = from ? parseStart(from) : null;
-  const toDt   = to   ? parseEnd(to)     : null;
-  if (fromDt || toDt) {
-    q.startedAt = {};
-    if (fromDt) q.startedAt.$gte = fromDt;
-    if (toDt)   q.startedAt.$lte = toDt;
+    // Date filter: use submittedAt if present, else startedAt/createdAt
+    // We'll filter on createdAt as a conservative baseline.
+    const parseDateStart = (d) => {
+      const dt = new Date(d);
+      if (isNaN(dt)) return null;
+      dt.setHours(0, 0, 0, 0);
+      return dt;
+    };
+    const parseDateEnd = (d) => {
+      const dt = new Date(d);
+      if (isNaN(dt)) return null;
+      dt.setHours(23, 59, 59, 999);
+      return dt;
+    };
+
+    const fromDt = from ? parseDateStart(from) : null;
+    const toDt   = to   ? parseDateEnd(to)   : null;
+    if (fromDt || toDt) {
+      q.createdAt = {};
+      if (fromDt) q.createdAt.$gte = fromDt;
+      if (toDt)   q.createdAt.$lte = toDt;
+    }
+
+    const rows = await Visit.find(q)
+      .sort({ submittedAt: -1, startedAt: -1, createdAt: -1, _id: -1 })
+      .limit(limit)
+      .populate({ path: 'rep', select: 'name roles active' })
+      .populate({ path: 'location', select: 'name' })
+      .lean();
+
+    // Return a plain array; the client tolerates array or {data}
+    res.json(rows);
+  } catch (e) {
+    console.error('List visits failed:', e);
+    res.status(500).json({ error: 'Failed to list visits' });
   }
-
-  const list = await Visit.find(q)
-    .sort({ startedAt: -1, _id: -1 })
-    .limit(limit)
-    .populate('rep location');
-
-  res.json(list);
 });
 
 // Start (or reuse) today's open visit for a rep+location
