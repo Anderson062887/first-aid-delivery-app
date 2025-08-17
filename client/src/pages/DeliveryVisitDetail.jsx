@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 
 const money = (n) => Number(n || 0).toFixed(2);
@@ -14,13 +14,113 @@ const outcomeKind = (o) =>
   o === 'no_access' ? 'no_access' :
   o === 'skipped'   ? 'skipped'   : 'default';
 
+/* ---------- CSV helpers ---------- */
+function encodeCsv(rows) {
+  return rows.map(cols =>
+    cols.map(v => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')
+  ).join('\n');
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Build a CSV for this visit: one row per line item across all deliveries */
+function buildVisitLinesCsv(visitDoc, deliveries) {
+  const header = [
+    'Date',
+    'Location',
+    'Address',
+    'Rep',
+    'VisitId',
+    'DeliveryId',
+    'BoxLabel',
+    'BoxSize',
+    'ItemName',
+    'Packaging',
+    'Qty',
+    'UnitPrice',
+    'LineTotal',
+    'DeliveryTotal',
+    'Outcome',
+    'Note'
+  ];
+
+  const rows = [header];
+  (deliveries || []).forEach(d => {
+    const when = d.deliveredAt || d.createdAt;
+    const dateIso = when ? new Date(when).toISOString() : '';
+    const repName = visitDoc?.rep?.name || visitDoc?.repName || d.visit?.rep?.name || d.repName || '';
+    const locName = visitDoc?.location?.name || d.location?.name || '';
+    const addrObj = visitDoc?.location?.address || d.location?.address || null;
+    const addr = addrObj ? [addrObj.street, addrObj.city, addrObj.state, addrObj.zip].filter(Boolean).join(', ') : '';
+    const visitId = visitDoc?._id || d.visit?._id || d.visit || '';
+    const deliveryId = d._id || '';
+    const boxLabel = d.box?.label || '';
+    const boxSize = d.box?.size || '';
+    const outcome = visitDoc?.outcome || d.visit?.outcome || '';
+    const note = (visitDoc?.note || d.visit?.note || '').replace(/\r?\n/g, ' ').trim();
+    const deliveryTotal = Number(d.total || 0);
+
+    if (Array.isArray(d.lines) && d.lines.length > 0) {
+      d.lines.forEach(l => {
+        const itemName = l.item?.name || '';
+        const packaging = l.packaging || '';
+        const qty = Number(l.quantity ?? 0);
+        const unit = Number(l.unitPrice ?? 0);
+        const lineTotal = Number(l.lineTotal ?? (qty * unit));
+        rows.push([
+          dateIso,
+          locName,
+          addr,
+          repName,
+          visitId,
+          deliveryId,
+          boxLabel,
+          boxSize,
+          itemName,
+          packaging,
+          String(qty),
+          Number(unit).toFixed(2),
+          Number(lineTotal).toFixed(2),
+          Number(deliveryTotal).toFixed(2),
+          outcome,
+          note
+        ]);
+      });
+    } else {
+      // No lines — still emit a row so the delivery is represented
+      rows.push([
+        dateIso, locName, addr, repName, visitId, deliveryId, boxLabel, boxSize,
+        '', '', '', '', '',
+        Number(deliveryTotal).toFixed(2),
+        outcome, note
+      ]);
+    }
+  });
+
+  return encodeCsv(rows);
+}
+
 export default function DeliveryVisitDetail() {
   const { visitId } = useParams();
-  const [visitDoc, setVisitDoc] = useState(null); // normalized Visit doc
-  const [rows, setRows] = useState([]);           // deliveries from API
+  const navigate = useNavigate();
+  const [visitDoc, setVisitDoc] = useState(null);
+  const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
 
-  // 1) Load the visit; handle both shapes: {visit, boxes} OR visit doc
+  // Load the visit
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -28,11 +128,8 @@ export default function DeliveryVisitDetail() {
         const r = await fetch(`/api/visits/${visitId}`);
         if (!r.ok) throw new Error('Failed to load visit');
         const data = await r.json();
-
-        // normalize: some APIs return { visit, boxes }, others return the doc directly
         const v = data?.visit ? data.visit : data;
         if (!v?._id) throw new Error('Visit not found');
-
         if (!cancelled) setVisitDoc(v);
       } catch (e) {
         if (!cancelled) setErr(String(e?.message || e));
@@ -41,7 +138,7 @@ export default function DeliveryVisitDetail() {
     return () => { cancelled = true; };
   }, [visitId]);
 
-  // 2) Load deliveries for THIS visit; also client-filter as a safeguard
+  // Load deliveries for this visit (and client-filter as safeguard)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -51,12 +148,8 @@ export default function DeliveryVisitDetail() {
         });
         if (!r.ok) throw new Error('Failed to load deliveries for visit');
         const json = await r.json();
-
-        // support both shapes: { data } or raw array
         const raw = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
-        // client-side safety filter (in case the backend ignores ?visit=)
         const onlyThisVisit = raw.filter(d => (d.visit?._id || d.visit) === visitId);
-
         if (!cancelled) setRows(onlyThisVisit);
       } catch (e) {
         if (!cancelled) setErr(String(e?.message || e));
@@ -67,23 +160,38 @@ export default function DeliveryVisitDetail() {
 
   const totals = useMemo(() => ({
     total: rows.reduce((s, d) => s + Number(d.total || 0), 0),
-    itemsTotal:rows.reduce((a,n)=> [...a,...n.lines],[]).length,
     boxCount: rows.length
   }), [rows]);
+
+  // Export button handler
+  function exportVisitCsv() {
+    if (!visitDoc) { alert('Visit not loaded'); return; }
+    if (!rows || rows.length === 0) { alert('No deliveries for this visit'); return; }
+    const csv = buildVisitLinesCsv(visitDoc, rows);
+    const loc = visitDoc.location?.name ? visitDoc.location.name.replace(/\s+/g, '-') : 'location';
+    const when = visitDoc.submittedAt || visitDoc.startedAt || visitDoc.createdAt;
+    const datePart = when ? new Date(when).toISOString().slice(0,10) : 'date';
+    const filename = `visit_${visitDoc._id}_${loc}_${datePart}.csv`;
+    downloadTextFile(filename, csv);
+  }
 
   if (err) return <div className="card" style={{ color:'red' }}>{err}</div>;
   if (!visitDoc) return <div className="card">Loading…</div>;
 
   const locName = visitDoc.location?.name || '—';
   const locAddr = fmtAddress(visitDoc.location?.address);
-  const repName = visitDoc.rep?.name || '—';
+  const repName = visitDoc.rep?.name || visitDoc.repName || '—';
   const started = visitDoc.startedAt ? new Date(visitDoc.startedAt).toLocaleString() : '—';
   const submitted = visitDoc.submittedAt ? new Date(visitDoc.submittedAt).toLocaleString() : null;
 
   return (
     <div>
       <div className="row" style={{ marginBottom: 12 }}>
-        <Link className="btn" to="/deliveries">← Back to Deliveries</Link>
+        <div> <button className="btn" onClick={() => navigate(-1)}>← Back</button></div>
+       
+        <div style={{ marginLeft: 'auto', display:'flex', gap:8 }}>
+          <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
+        </div>
       </div>
 
       <div className="card" style={{ display:'grid', gap:6 }}>
@@ -92,11 +200,6 @@ export default function DeliveryVisitDetail() {
         <div><strong>Rep:</strong> {repName}</div>
         <div><strong>Started:</strong> {started}</div>
         {submitted && <div><strong>Submitted:</strong> {submitted}</div>}
-        {/* added for edit route */}
-        {/* <div className="row" style={{ gap:8, marginTop:8 }}>
-          <Link className="btn" to={`/visits/${visitId}/edit`}>Edit visit</Link>
-          <Link className="btn" to="/deliveries">Back to Deliveries</Link>
-        </div> */}
         <div>
           <strong>Outcome:</strong>{' '}
           {visitDoc.outcome
@@ -104,7 +207,6 @@ export default function DeliveryVisitDetail() {
             : '—'}
         </div>
         {visitDoc.note && <div><strong>Note:</strong> {visitDoc.note}</div>}
-         <div><strong># Items:</strong> {totals.itemsTotal}</div>
         <div><strong># Boxes:</strong> {totals.boxCount}</div>
         <div><strong>Total:</strong> ${money(totals.total)}</div>
       </div>
@@ -120,7 +222,7 @@ export default function DeliveryVisitDetail() {
                 <th>Box</th>
                 <th>Lines</th>
                 <th>Total</th>
-                <th>Open single box</th>
+                <th>Open single delivery</th>
               </tr>
             </thead>
             <tbody>
@@ -138,8 +240,7 @@ export default function DeliveryVisitDetail() {
                       ))}
                     </td>
                     <td>${money(d.total)}</td>
-         <td><Link to={`/deliveries/${d._id}`}>Single box view</Link>{' · '}<Link to={`/deliveries/${d._id}/edit`}>Edit</Link>
-                    </td>
+                    <td><Link to={`/deliveries/${d._id}`}>Single delivery view</Link></td>
                   </tr>
                 );
               })}
@@ -150,5 +251,6 @@ export default function DeliveryVisitDetail() {
     </div>
   );
 }
+
 
 

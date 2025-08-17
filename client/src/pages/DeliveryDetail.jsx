@@ -44,8 +44,9 @@ export default function DeliveryDetail(){
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <div  style={{ marginBottom: 12, border:"none" }}>
         <Link className="btn" to="/deliveries">← Back to Deliveries</Link>
+        
       </div>
           {/* /edit/
           <div className="card">

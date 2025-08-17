@@ -25,6 +25,54 @@ function outcomeKind(o) {
   return 'default';
 }
 
+// Turn grouped rows into CSV text
+function groupedToCsv(rows) {
+  const header = [
+    'Date',
+    'Rep',
+    'Location',
+    'BoxCount',
+    'Outcome',
+    'Note',
+    'Total',
+    'VisitId',
+  ];
+  const lines = rows.map(g => ([
+    (g.when ? g.when.toISOString() : ''),   // ISO for easy spreadsheet parsing
+    (g.repName || ''),
+    (g.locationName || ''),
+    String(g.boxCount ?? ''),
+    (g.outcome || ''),
+    (g.note || '').replace(/\r?\n/g, ' ').trim(),
+    String(Number(g.total || 0).toFixed(2)),
+    (g.visitId || ''),
+  ]));
+  const csv = [header, ...lines]
+    .map(cols => cols.map(s => {
+      const v = String(s ?? '');
+      // Quote if needed
+      return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    }).join(','))
+    .join('\n');
+  return csv;
+}
+
+// Download a text blob as a file
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
+
+
 // Group individual delivery rows (one per box) into one row per visit
 function groupByVisit(rows) {
   const map = new Map();
@@ -54,6 +102,8 @@ function groupByVisit(rows) {
   // newest first
   return Array.from(map.values()).sort((a, b) => b.when - a.when);
 }
+
+
 
 export default function Deliveries() {
   const { get, setMany } = useQueryState();
@@ -260,7 +310,37 @@ export default function Deliveries() {
           </div>
         </div>
 
-        <div className="row responsive-3">
+
+                  <div className="row responsive-3" style={{ alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={clearFilters}>Clear Filters</button>
+              <button
+                className="btn"
+                onClick={() => {
+                  if (!grouped || grouped.length === 0) {
+                    alert('No deliveries to export for the current filters.');
+                    return;
+                  }
+                  const csv = groupedToCsv(grouped);
+                  // Build a friendly filename from filters
+                  const locPart = location ? `loc-${location}` : 'all-locations';
+                  const repPart = (repId || repName) ? `rep-${repId || repName}` : 'all-reps';
+                  const fromPart = from ? `from-${from}` : '';
+                  const toPart = to ? `to-${to}` : '';
+                  const filename = ['deliveries', locPart, repPart, fromPart, toPart]
+                    .filter(Boolean).join('_') + '.csv';
+                  downloadTextFile(filename, csv);
+                }}
+              >
+                Export CSV
+              </button>
+            </div>
+            <div style={{ marginLeft: 'auto' }}>
+              <strong>Total on page: ${totalAmount.toFixed(2)}</strong>
+            </div>
+          </div>
+
+        {/* <div className="row responsive-3">
           <div>
             <button className="btn" onClick={clearFilters}>
               Clear Filters
@@ -269,7 +349,7 @@ export default function Deliveries() {
           <div style={{ marginLeft: 'auto' }}>
             <strong>Total on page: ${totalAmount.toFixed(2)}</strong>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {err && <div style={{ color: 'red', margin: '12px 0' }}>{err}</div>}
