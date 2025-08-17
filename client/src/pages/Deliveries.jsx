@@ -163,7 +163,7 @@ export default function Deliveries() {
     <div>
       <h2>Deliveries</h2>
 
-      <div className="card" style={{ display: 'grid', gap: 12 }}>
+      <div className="card" style={{ display: 'grid', gap: 16 }}>
         <div className="row">
           <div>
             <label>Location</label>

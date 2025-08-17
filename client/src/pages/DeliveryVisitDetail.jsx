@@ -92,6 +92,11 @@ export default function DeliveryVisitDetail() {
         <div><strong>Rep:</strong> {repName}</div>
         <div><strong>Started:</strong> {started}</div>
         {submitted && <div><strong>Submitted:</strong> {submitted}</div>}
+        {/* added for edit route */}
+        {/* <div className="row" style={{ gap:8, marginTop:8 }}>
+          <Link className="btn" to={`/visits/${visitId}/edit`}>Edit visit</Link>
+          <Link className="btn" to="/deliveries">Back to Deliveries</Link>
+        </div> */}
         <div>
           <strong>Outcome:</strong>{' '}
           {visitDoc.outcome
@@ -115,7 +120,7 @@ export default function DeliveryVisitDetail() {
                 <th>Box</th>
                 <th>Lines</th>
                 <th>Total</th>
-                <th>Open single delivery</th>
+                <th>Open single box</th>
               </tr>
             </thead>
             <tbody>
@@ -133,7 +138,8 @@ export default function DeliveryVisitDetail() {
                       ))}
                     </td>
                     <td>${money(d.total)}</td>
-                    <td><Link to={`/deliveries/${d._id}`}>Single delivery view</Link></td>
+         <td><Link to={`/deliveries/${d._id}`}>Single box view</Link>{' · '}<Link to={`/deliveries/${d._id}/edit`}>Edit</Link>
+                    </td>
                   </tr>
                 );
               })}

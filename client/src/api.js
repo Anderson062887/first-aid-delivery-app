@@ -58,6 +58,15 @@ export const api = {
       const res = await fetch(`/api/deliveries/${id}`);
       if (!res.ok) throw new Error('Failed to load delivery');
       return res.json();
+    },
+       update: async (id, payload) => {
+      const r = await fetch(`/api/deliveries/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed to update delivery');
+      return r.json();
     }
   }
 };
@@ -129,6 +138,17 @@ export const visitApi = {
     }
     return res.json().catch(() => ({ ok: true })); // be lenient
   },
+    update: async (id, payload) => {
+      const r = await fetch(`/api/visits/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed to update visit');
+      return r.json();
+    }
+  
+
 };
 
 

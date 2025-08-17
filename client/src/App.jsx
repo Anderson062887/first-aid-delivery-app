@@ -14,6 +14,8 @@ import VisitStart from './pages/VisitStart.jsx'
 import Visit from './pages/Visit.jsx'
 import DeliveryDetail from './pages/DeliveryDetail.jsx';
 import DeliveryVisitDetail from './pages/DeliveryVisitDetail.jsx';
+import DeliveryEdit from './pages/DeliveryEdit.jsx';
+import VisitEdit from './pages/VisitEdit.jsx';
 
 
 export default function App(){
@@ -28,6 +30,7 @@ export default function App(){
           <Route path="/deliveries" element={<Deliveries/>} />
           <Route path="/deliveries/new" element={<NewDelivery/>} />
           <Route path="/deliveries/:id" element={<DeliveryDetail />} />
+          <Route path="/deliveries/:id/edit" element={<DeliveryEdit/>} />
           <Route path="/deliveries/visit/:visitId" element={<DeliveryVisitDetail/>} />
           <Route path="/items" element={<Items/>} />
           <Route path="/items/new" element={<ItemNew/>} />
@@ -36,6 +39,7 @@ export default function App(){
           <Route path="/locations/new" element={<LocationNew/>} />
           <Route path="/visits/start" element={<VisitStart/>} />
           <Route path="/visits/:id" element={<Visit/>} />
+          <Route path="/visits/:id/edit" element={<VisitEdit/>} />
         </Routes>
       </div>
     </>

@@ -3,6 +3,16 @@ import Delivery from '../models/Delivery.js';
 import Item from '../models/Item.js';
 import Visit from '../models/Visit.js';
 
+function unitPriceFor(item, packaging = '') {
+  const p = String(packaging).toLowerCase();
+  // If packaging mentions case/box/pack, use pricePerPack; else use each price
+  if (p.includes('case') || p.includes('box') || p.includes('pack')) {
+    return Number(item.pricePerPack ?? item.price ?? 0);
+  }
+  return Number(item.price ?? item.pricePerPack ?? 0);
+}
+
+
 
 const r = Router();
 
@@ -192,6 +202,77 @@ r.get('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to get delivery' });
   }
 });
+
+
+// PATCH /api/deliveries/:id
+r.patch('/:id', async (req, res) => {
+  try {
+    const delivery = await Delivery.findById(req.params.id);
+    if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
+
+    if (!Array.isArray(req.body.lines)) {
+      return res.status(400).json({ error: 'lines must be an array' });
+    }
+
+    // Build new lines from payload, computing unitPrice from Item + packaging
+    const newLines = [];
+    for (const raw of req.body.lines) {
+      if (!raw?.item) return res.status(400).json({ error: 'Each line must include item' });
+
+      const item = await Item.findById(raw.item).lean();
+      if (!item) return res.status(400).json({ error: 'Invalid item in lines' });
+
+      const quantity = Number(raw.quantity ?? 0);
+      const packaging = String(raw.packaging ?? '');
+      const unitPrice = unitPriceFor(item, packaging);
+      const lineTotal = Number((unitPrice * quantity).toFixed(2));
+
+      newLines.push({
+        item: item._id,
+        quantity,
+        packaging,
+        unitPrice,
+        lineTotal
+      });
+    }
+
+    // Recompute delivery total
+    const total = newLines.reduce((s, l) => s + Number(l.lineTotal || 0), 0);
+
+    // Snapshot for optional audit log
+    // const before = { lines: delivery.toObject().lines, total: delivery.total };
+
+    // Apply changes
+    delivery.lines = newLines;
+    delivery.total = Number(total.toFixed(2));
+    await delivery.save();
+
+    // Optional: write audit log if you created ChangeLog model
+    // try {
+    //   await ChangeLog.create({
+    //     entityType: 'Delivery',
+    //     entityId: delivery._id,
+    //     action: 'update',
+    //     before,
+    //     after: { lines: newLines, total: delivery.total }
+    //   });
+    // } catch (_) {}
+
+    // Return updated, populated delivery for the UI
+    const updated = await Delivery.findById(delivery._id)
+      .populate({ path: 'location', select: 'name address' })
+      .populate({ path: 'box', select: 'label size' })
+      .populate({ path: 'lines.item', select: 'name price pricePerPack' })
+      .populate({ path: 'visit', populate: [{ path: 'rep', select: 'name' }, { path: 'location', select: 'name' }] });
+
+    res.json(updated);
+  } catch (e) {
+    console.error('Update delivery failed:', e);
+    res.status(500).json({ error: 'Failed to update delivery' });
+  }
+});
+
+
 
 export default r;
 

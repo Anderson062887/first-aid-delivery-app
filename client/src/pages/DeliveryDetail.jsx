@@ -47,6 +47,13 @@ export default function DeliveryDetail(){
       <div className="row" style={{ marginBottom: 12 }}>
         <Link className="btn" to="/deliveries">← Back to Deliveries</Link>
       </div>
+          {/* /edit/
+          <div className="card">
+             <div className="row" style={{ gap:8 }}>
+              <Link className="btn" to={`/deliveries/${delivery._id}/edit`}>Edit delivery</Link>
+              <button className="btn" onClick={()=>navigate(-1)}>Back</button>
+            </div>
+        </div> */}
 
       <div className="card" style={{ display:'grid', gap:6 }}>
         <h2 style={{ margin: 0 }}>Delivery Detail</h2>
@@ -62,6 +69,7 @@ export default function DeliveryDetail(){
         )}
         <div><strong>Total:</strong> ${money(total)}</div>
       </div>
+  
 
       <div className="card" style={{ overflowX:'auto', marginTop: 12 }}>
         <table className="table">
