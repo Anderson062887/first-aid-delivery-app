@@ -164,7 +164,7 @@ export default function Deliveries() {
       <h2>Deliveries</h2>
 
       <div className="card" style={{ display: 'grid', gap: 16 }}>
-        <div className="row">
+        <div className="row responsive-3">
           <div>
             <label>Location</label>
             <select
@@ -209,7 +209,7 @@ export default function Deliveries() {
           </div>
         </div>
 
-        <div className="row">
+        <div className="row responsive-3">
           <div>
             <label>Rep (by user)</label>
             <select
@@ -260,7 +260,7 @@ export default function Deliveries() {
           </div>
         </div>
 
-        <div className="row">
+        <div className="row responsive-3">
           <div>
             <button className="btn" onClick={clearFilters}>
               Clear Filters
@@ -280,7 +280,7 @@ export default function Deliveries() {
       )}
 
       {!loading && grouped.length > 0 && (
-        <div className="card" style={{ overflowX: 'auto' }}>
+        <div className="card  table-responsive" style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
               <tr>
@@ -297,11 +297,11 @@ export default function Deliveries() {
             <tbody>
               {grouped.map((g) => (
                 <tr key={g.visitId}>
-                  <td>{g.when.toLocaleString()}</td>
-                  <td>{g.repName}</td>
-                  <td>{g.locationName}</td>
-                  <td>{g.boxCount}</td>
-                  <td>
+                  <td data-label="Date">{g.when.toLocaleString()}</td>
+                  <td data-label="Rep">{g.repName}</td>
+                  <td data-label="Location">{g.locationName}</td>
+                  <td data-label="# Boxes">{g.boxCount}</td>
+                  <td data-label="Details">
                      {g.visitId !== 'no-visit' ? (
                         <Link to={`/deliveries/visit/${g.visitId}`}>View details</Link>
                       ) : (

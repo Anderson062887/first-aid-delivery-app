@@ -12,3 +12,113 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .flex { display:flex; gap:var(--gap); align-items:center; }
 .row { display:flex; gap:var(--gap); }
 .row > * { flex:1; }
+/* /new styles / */
+.filters {
+   display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+  align-items: center;
+  /* .card already has padding, so we don't add padding here */
+}
+
+.filters > * {
+  min-width: 0;      /* IMPORTANT: allow shrinking */
+}
+
+/* Inputs already have width:100% from your .input,select rule; this just ensures consistency */
+.filters .input,
+.filters select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Make certain rows (like the Clear button or totals) span the full width */
+.filters .full {
+  grid-column: 1 / -1;
+}
+
+
+
+/* Make rows wrap and form 3 columns on desktop, 2 on tablet, 1 on mobile */
+.row { 
+  display: flex; 
+  gap: var(--gap); 
+  flex-wrap: wrap;            /* allow wrapping */
+}
+
+/* Use this class on rows that should behave as 3-up responsive grids */
+.row.responsive-3 > * {
+  flex: 1 1 calc(33.333% - var(--gap));  /* 3 columns */
+  min-width: 0;                           /* prevent overflow */
+}
+
+@media (max-width: 900px) {
+  .row.responsive-3 > * {
+    flex: 1 1 calc(50% - var(--gap));     /* 2 columns */
+  }
+}
+@media (max-width: 600px) {
+  .row.responsive-3 > * {
+    flex: 1 1 100%;                       /* 1 column */
+  }
+}
+
+/* Ensure inputs stretch nicely inside their cells */
+.input, select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Optional: labels a bit tighter */
+.card label { display:block; margin-bottom: 4px; }
+
+
+
+
+
+/* Keep horizontal scroll available on narrow containers */
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* Mobile: transform table rows into stacked cards */
+@media (max-width: 700px) {
+  .table {
+    border-collapse: separate; /* keep cell spacing nice when stacked */
+  }
+  .table thead {
+    display: none;             /* hide header row */
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+  .table tr {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 8px var(--pad);
+    margin-bottom: 12px;
+    background: #fff;
+  }
+  .table td {
+    border: 0;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    white-space: normal;       /* allow wrapping on mobile */
+  }
+  .table td::before {
+    content: attr(data-label); /* label shown from data-label attribute */
+    font-weight: 600;
+    opacity: 0.8;
+    margin-right: 8px;
+  }
+  /* Tighten last cell */
+  .table td:last-child {
+    padding-bottom: 0;
+  }
+}
