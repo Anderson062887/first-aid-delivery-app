@@ -2,11 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const money = (n) => Number(n || 0).toFixed(2);
-const fmt = (d) => d ? new Date(d).toLocaleString() : '—';
+const fmt = (d) => (d ? new Date(d).toLocaleString() : '—');
 const fmtAddress = (addr) => {
   if (!addr || typeof addr !== 'object') return '';
   const { street, city, state, zip } = addr;
   return [street, city, state, zip].filter(Boolean).join(', ');
+};
+
+// ---- Customize your company info here ----
+const COMPANY = {
+  name: 'Initiate Care.',
+  phone: '646-755-3832',
+  email: 'info@initiatecare.com',
+  website: 'www.initiatecare.com',
+  address: '131 Varick St suite 916 New York, NY 10013'
 };
 
 export default function VisitPrint() {
@@ -77,13 +86,23 @@ export default function VisitPrint() {
         <button className="btn primary" onClick={doPrint}>Print / Save PDF</button>
       </div>
 
-      <div className="card" style={{ display:'grid', gap:8 }}>
+      {/* Brand / company header */}
+      <div className="card" style={{ display:'grid', gap:10 }}>
         <div className="print-header">
-          <div>
-            <h2 style={{ margin: 0 }}>Visit Summary</h2>
-            <div style={{ opacity: .8 }}>Visit ID: {visit._id}</div>
+          <div className="print-brand">
+            <div className="print-logo">
+              {/* Put your logo at client/public/logo.png */}
+              <img src="/logo.png" alt="Company logo" />
+            </div>
+            <div className="print-company">
+              <div className="name">{COMPANY.name}</div>
+              <div className="meta">{COMPANY.address}</div>
+              <div className="meta">{COMPANY.phone} · {COMPANY.email} · {COMPANY.website}</div>
+            </div>
           </div>
-          <div className="print-meta">
+
+          <div className="print-meta" style={{ textAlign:'right' }}>
+            <div><strong>Visit ID:</strong> {visit._id}</div>
             <div><strong>Date started:</strong> {fmt(visit.startedAt)}</div>
             {visit.submittedAt && <div><strong>Date submitted:</strong> {fmt(visit.submittedAt)}</div>}
             <div><strong>Rep:</strong> {repName}</div>
@@ -138,6 +157,19 @@ export default function VisitPrint() {
 
         <div className="print-total">Grand Total: ${money(totals.total)}</div>
       </div>
+
+      {/* Footer (prints on each page) */}
+      <div className="print-footer">
+        <div style={{ display:'flex', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+          <div>
+            <strong>{COMPANY.name}</strong> · {COMPANY.phone} · {COMPANY.email}
+          </div>
+          <div>
+            {COMPANY.website} · {COMPANY.address}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+

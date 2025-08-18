@@ -199,6 +199,8 @@ export default function DeliveryVisitDetail() {
           <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
             <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
             <Link className="btn" to={`/visits/${visitId}/print`}>Print Summary</Link>
+            {/* <Link className="btn" to={`/visits/${visitId}/edit`}>Edit visit</Link> */}
+           
           </div>
        </div>
 
@@ -230,7 +232,8 @@ export default function DeliveryVisitDetail() {
                 <th>Box</th>
                 <th>Lines</th>
                 <th>Total</th>
-                <th>Open single delivery</th>
+                 <th>📦</th>
+                 <th>🖊️</th>
               </tr>
             </thead>
             <tbody>
@@ -248,7 +251,8 @@ export default function DeliveryVisitDetail() {
                       ))}
                     </td>
                     <td>${money(d.total)}</td>
-                    <td><Link to={`/deliveries/${d._id}`}>Single delivery view</Link></td>
+                    <td><Link to={`/deliveries/${d._id}`}>view box</Link></td>
+                    <td><Link to={`/deliveries/${d._id}/edit`}>Edit</Link></td>
                   </tr>
                 );
               })}
