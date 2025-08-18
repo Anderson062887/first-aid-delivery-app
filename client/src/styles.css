@@ -52,6 +52,11 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   min-width: 0;                           /* prevent overflow */
 }
 
+
+
+
+
+
 @media (max-width: 900px) {
   .row.responsive-3 > * {
     flex: 1 1 calc(50% - var(--gap));     /* 2 columns */
@@ -121,4 +126,56 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   .table td:last-child {
     padding-bottom: 0;
   }
+}
+
+
+/* Print-friendly layout */
+.print-page {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin-bottom: 16px;
+}
+
+.print-meta {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.print-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Clean table for print */
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.print-table th, .print-table td {
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  text-align: left;
+}
+.print-total {
+  text-align: right;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Hide non-essential UI when printing */
+@media print {
+  header, nav, .btn, .print-actions, .no-print { display: none !important; }
+  .card { border: none; padding: 0; margin: 0; }
+  body { background: #fff; }
+  .container { padding: 0; max-width: 100%; }
 }

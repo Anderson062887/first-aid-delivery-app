@@ -186,13 +186,21 @@ export default function DeliveryVisitDetail() {
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
+      {/* <div className="row" style={{ marginBottom: 12 }}>
         <div> <button className="btn" onClick={() => navigate(-1)}>← Back</button></div>
        
         <div style={{ marginLeft: 'auto', display:'flex', gap:8 }}>
           <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
         </div>
-      </div>
+
+      </div> */}
+       <div className="row" style={{ marginBottom: 12 }}>
+          <button className="btn" onClick={()=>navigate(-1)}>← Back</button>
+          <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+            <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
+            <Link className="btn" to={`/visits/${visitId}/print`}>Print Summary</Link>
+          </div>
+       </div>
 
       <div className="card" style={{ display:'grid', gap:6 }}>
         <h2 style={{ margin:0 }}>Visit Details</h2>

@@ -16,6 +16,7 @@ import DeliveryDetail from './pages/DeliveryDetail.jsx';
 import DeliveryVisitDetail from './pages/DeliveryVisitDetail.jsx';
 import DeliveryEdit from './pages/DeliveryEdit.jsx';
 import VisitEdit from './pages/VisitEdit.jsx';
+import VisitPrint from './pages/VisitPrint.jsx';
 
 
 export default function App(){
@@ -40,6 +41,7 @@ export default function App(){
           <Route path="/visits/start" element={<VisitStart/>} />
           <Route path="/visits/:id" element={<Visit/>} />
           <Route path="/visits/:id/edit" element={<VisitEdit/>} />
+          <Route path="/visits/:visitId/print" element={<VisitPrint/>} />
         </Routes>
       </div>
     </>
