@@ -17,6 +17,8 @@ import DeliveryVisitDetail from './pages/DeliveryVisitDetail.jsx';
 import DeliveryEdit from './pages/DeliveryEdit.jsx';
 import VisitEdit from './pages/VisitEdit.jsx';
 import VisitPrint from './pages/VisitPrint.jsx';
+import ProtectedRoute from './auth/ProtectedRoute.jsx';
+import Login from './pages/Login.jsx';
 
 
 export default function App(){
@@ -24,24 +26,33 @@ export default function App(){
     <>
       <NavBar />
       <div className="container">
+        
         <Routes>
-          <Route path="/" element={<Dashboard/>} />
-          <Route path="/locations" element={<Locations/>} />
-          <Route path="/boxes" element={<Boxes/>} />
-          <Route path="/deliveries" element={<Deliveries/>} />
-          <Route path="/deliveries/new" element={<NewDelivery/>} />
-          <Route path="/deliveries/:id" element={<DeliveryDetail />} />
-          <Route path="/deliveries/:id/edit" element={<DeliveryEdit/>} />
-          <Route path="/deliveries/visit/:visitId" element={<DeliveryVisitDetail/>} />
-          <Route path="/items" element={<Items/>} />
-          <Route path="/items/new" element={<ItemNew/>} />
-          <Route path="/users" element={<Users/>} />
-          <Route path="/users/new" element={<UserNew/>} />
-          <Route path="/locations/new" element={<LocationNew/>} />
-          <Route path="/visits/start" element={<VisitStart/>} />
-          <Route path="/visits/:id" element={<Visit/>} />
-          <Route path="/visits/:id/edit" element={<VisitEdit/>} />
-          <Route path="/visits/:visitId/print" element={<VisitPrint/>} />
+          <Route path="/login" element={<Login/>} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<Dashboard/>} />
+                  <Route path="/locations" element={<Locations/>} />
+                  <Route path="/boxes" element={<Boxes/>} />
+                  <Route path="/deliveries" element={<Deliveries/>} />
+                  <Route path="/deliveries/new" element={<NewDelivery/>} />
+                  <Route path="/deliveries/:id" element={<DeliveryDetail />} />
+                  <Route path="/deliveries/:id/edit" element={<DeliveryEdit/>} />
+                  <Route path="/deliveries/visit/:visitId" element={<DeliveryVisitDetail/>} />
+
+                  <Route element={<ProtectedRoute roles={['admin']} />}>
+                      <Route path="/items" element={<Items/>} />
+                      <Route path="/items/new" element={<ItemNew/>} />
+                      <Route path="/users" element={<Users/>} />
+                      <Route path="/users/new" element={<UserNew/>} />
+                       <Route path="/locations/new" element={<LocationNew/>} />
+                  </Route>
+  
+                  <Route path="/visits/start" element={<VisitStart/>} />
+                  <Route path="/visits/:id" element={<Visit/>} />
+                  <Route path="/visits/:id/edit" element={<VisitEdit/>} />
+                  <Route path="/visits/:visitId/print" element={<VisitPrint/>} />
+
+                  </Route>
         </Routes>
       </div>
     </>
