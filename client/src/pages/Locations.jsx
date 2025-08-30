@@ -6,7 +6,7 @@ import RepBar from '../components/RepBar.jsx';
 import Badge from '../components/Badge.jsx';
 
 export default function Locations(){
-  const [repId, setRepId] = useState(localStorage.getItem('selectedRepId') || '');
+  // const [repId, setRepId] = useState(localStorage.getItem('selectedRepId') || '');
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState([]);
@@ -72,9 +72,9 @@ export default function Locations(){
   }, [search]);
 
   async function startVisit(locationId){
-    if(!repId){ alert('Select a rep first'); return; }
+    // if(!repId){ alert('Select a rep first'); return; }
     try{
-      const v = await visitApi.start(repId, locationId);
+      const v = await visitApi.start(locationId);
       nav(`/visits/${v._id}`);
     } catch(e){
       setErr(String(e?.message || e));
@@ -93,7 +93,7 @@ export default function Locations(){
     <div>
       <h2>Locations</h2>
 
-      <RepBar onChange={setRepId} />
+      {/* <RepBar onChange={setRepId} /> */}
 
       <div className="card" style={{ display:'grid', gap:12 }}>
         <label>Search by name or address</label>
@@ -127,7 +127,7 @@ export default function Locations(){
               )}
 
               <div style={{ display:'flex', gap:8, marginTop:6 }}>
-                <button className="btn" onClick={() => startVisit(loc._id)} disabled={!repId}>
+                <button className="btn" onClick={() => startVisit(loc._id)}>
                   Start / Continue Visit
                 </button>
                 <Link className="btn" to={`/boxes?location=${loc._id}`}>

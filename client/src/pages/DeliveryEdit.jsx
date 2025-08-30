@@ -134,7 +134,7 @@ export default function DeliveryEdit() {
       const updated = await r.json();
       setMsg('Delivery updated.');
       // Go back to single delivery detail
-      navigate(`/deliveries/${updated._id}`);
+      navigate(`/deliveries/${updated._id}?from=edit`);
     } catch (e) {
       setErr(String(e?.message || e));
     } finally {
@@ -146,7 +146,7 @@ export default function DeliveryEdit() {
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 12 }}>
         <button className="btn" onClick={() => navigate(-1)}>← Back</button>
       </div>
 
@@ -252,7 +252,7 @@ export default function DeliveryEdit() {
           <button className="btn primary" disabled={saving} onClick={save}>
             Save changes
           </button>
-          {delivery && <Link className="btn" to={`/deliveries/${delivery._id}`}>Cancel</Link>}
+          {delivery && <Link className="btn" to={`/deliveries/${delivery._id}?from=edit`}>Cancel</Link>}
         </div>
       </div>
     </div>

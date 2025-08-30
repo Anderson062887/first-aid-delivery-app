@@ -4,7 +4,7 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
 nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .container { padding: var(--pad); max-width: 1100px; margin: 0 auto; }
 .card { border:1px solid #eee; border-radius: 10px; padding: var(--pad); margin-bottom: 12px; }
-.btn { padding:8px 12px; border-radius: 8px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+.btn { padding:8px 12px; border-radius: 8px; border:1px solid #ccc; background:#fff; cursor:pointer; text-decoration: none;}
 .btn.primary { background:#222; color:#fff; border-color:#222; }
 .input, select { padding:8px; border-radius:8px; border:1px solid #ccc; width:100%; }
 .table { width:100%; border-collapse: collapse; }
@@ -242,4 +242,33 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 /* Optional: page size / margins for cleaner PDFs (browsers may vary) */
 @page {
   margin: 16mm;
+}
+
+
+
+/* ---- Items Table (more space + centered) ---- */
+.page.items-page {
+  max-width: 900px;     /* narrower than default container */
+  margin: 0 auto;       /* center horizontally */
+  padding: var(--pad);
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;  /* vertical gap between rows */
+}
+
+.items-table th {
+  padding: 12px;
+  background: #f9f9f9;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.items-table td {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
 }

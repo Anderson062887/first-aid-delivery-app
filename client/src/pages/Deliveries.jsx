@@ -1,23 +1,11 @@
+// client/src/pages/Deliveries.jsx
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
-import { useSearchParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { api, usersApi } from '../api';
 import Badge from '../components/Badge.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
 
-function useQueryState() {
-  const [sp, setSp] = useSearchParams();
-  const get = (k, d = '') => sp.get(k) ?? d;
-  const setMany = (obj) => {
-    const next = new URLSearchParams(sp);
-    Object.entries(obj).forEach(([k, v]) => {
-      if (v === undefined || v === null || v === '') next.delete(k);
-      else next.set(k, String(v));
-    });
-    setSp(next, { replace: true });
-  };
-  return { sp, get, setMany };
-}
-
-function outcomeKind(o) {
+function outcomeKind(o){
   if (o === 'completed') return 'completed';
   if (o === 'partial') return 'partial';
   if (o === 'no_access') return 'no_access';
@@ -25,331 +13,249 @@ function outcomeKind(o) {
   return 'default';
 }
 
-// Turn grouped rows into CSV text
-function groupedToCsv(rows) {
-  const header = [
-    'Date',
-    'Rep',
-    'Location',
-    'BoxCount',
-    'Outcome',
-    'Note',
-    'Total',
-    'VisitId',
-  ];
-  const lines = rows.map(g => ([
-    (g.when ? g.when.toISOString() : ''),   // ISO for easy spreadsheet parsing
-    (g.repName || ''),
-    (g.locationName || ''),
-    String(g.boxCount ?? ''),
-    (g.outcome || ''),
-    (g.note || '').replace(/\r?\n/g, ' ').trim(),
-    String(Number(g.total || 0).toFixed(2)),
-    (g.visitId || ''),
-  ]));
-  const csv = [header, ...lines]
-    .map(cols => cols.map(s => {
-      const v = String(s ?? '');
-      // Quote if needed
-      return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    }).join(','))
-    .join('\n');
-  return csv;
-}
-
-// Download a text blob as a file
-function downloadTextFile(filename, text) {
-  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-
-
-
-// Group individual delivery rows (one per box) into one row per visit
-function groupByVisit(rows) {
-  const map = new Map();
-  for (const r of rows || []) {
-    const vid = r.visit?._id || 'no-visit';
-    if (!map.has(vid)) {
-      map.set(vid, {
-        visitId: vid,
-        when: new Date(r.deliveredAt || r.createdAt || Date.now()),
-        repName: r.visit?.rep?.name || r.repName || '—',
-        locationName: r.visit?.location?.name || r.location?.name || '—',
-        outcome: r.visit?.outcome,
-        note: r.visit?.note,
-        total: 0,
-        boxCount: 0,
-      });
-    }
-    const g = map.get(vid);
-    g.total += Number(r.total || 0);
-    g.boxCount += 1;
-    // Prefer the earliest timestamp as the "visit time" if needed:
-    if (r.deliveredAt || r.createdAt) {
-      const t = new Date(r.deliveredAt || r.createdAt);
-      if (t < g.when) g.when = t;
-    }
-  }
-  // newest first
-  return Array.from(map.values()).sort((a, b) => b.when - a.when);
-}
-
-
-
 export default function Deliveries() {
-  const { get, setMany } = useQueryState();
+  const { user } = useAuth();
+  const isAdmin = !!user?.roles?.includes('admin');
 
-  // Filters from URL
-  const [location, setLocation] = useState(get('location'));
-  const [from, setFrom] = useState(get('from'));
-  const [to, setTo] = useState(get('to'));
-  const [repId, setRepId] = useState(get('repId'));
-  const [repName, setRepName] = useState(get('repName'));
-  const [page, setPage] = useState(Number(get('page', '1')) || 1);
-  const [limit, setLimit] = useState(Number(get('limit', '25')) || 25);
+  // --- filters ---
+  const [location, setLocation] = useState('');
+  const [from, setFrom]         = useState('');
+  const [to, setTo]             = useState('');
+  const [repId, setRepId]       = useState('');   // used only by admin
+  const [repName, setRepName]   = useState('');   // available to everyone
+  const [limit, setLimit]       = useState(25);
+  const [page, setPage]         = useState(1);
 
-  // Dropdown data
+  // --- data ---
+  const [rows, setRows]         = useState([]);   // deliveries from API (data)
+  const [pageInfo, setPageInfo] = useState({ page:1, limit:25, total:0, hasMore:false });
   const [locations, setLocations] = useState([]);
-  const [reps, setReps] = useState([]);
+  const [reps, setReps]         = useState([]);   // admin list; reps won't use this
+  const [loading, setLoading]   = useState(true);
+  const [err, setErr]           = useState('');
 
-  // Raw rows from API (box-level)
-  const [rows, setRows] = useState([]);
-  const [pageInfo, setPageInfo] = useState({
-    page: 1,
-    limit: 25,
-    total: 0,
-    hasMore: false,
-  });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
-
-  // Load dropdowns
-  useEffect(() => {
-    api.locations.list().then(setLocations).catch(console.error);
-    fetch('/api/users')
-      .then((r) => r.json())
-      .then((users) => setReps((users || []).filter((u) => u.active)))
-      .catch(console.error);
-  }, []);
-
-  // Sync URL with filters/pagination
-  useEffect(() => {
-    setMany({ location, from, to, repId, repName, page, limit });
-  }, [location, from, to, repId, repName, page, limit]);
-
-  // Build filters for API
-  const filters = useMemo(() => {
-    const f = { page, limit };
-    if (location) f.location = location;
-    if (from) f.from = from;
-    if (to) f.to = to;
-    if (repId) f.repId = repId;
-    else if (repName) f.repName = repName.trim();
-    return f;
-  }, [location, from, to, repId, repName, page, limit]);
-
-  // Fetch deliveries (box-level rows)
+  // Load locations for the filter
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setErr('');
-    api.deliveries
-      .list(filters)
-      .then((resp) => {
-        if (cancelled) return;
-        const data = resp?.data ?? (Array.isArray(resp) ? resp : []);
-        const info = resp?.pageInfo ?? {
-          page,
-          limit,
-          total: data.length,
-          hasMore: false,
-        };
-        setRows(Array.isArray(data) ? data : []);
-        setPageInfo(info);
-      })
-      .catch((e) => !cancelled && setErr(String(e?.message || e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [filters, page, limit]);
+    async function loadLocations(){
+      try {
+        const locs = await api.locations.list('');
+        if (!cancelled) setLocations(Array.isArray(locs) ? locs : []);
+      } catch (e) {
+        if (!cancelled) setLocations([]);
+      }
+    }
+    loadLocations();
+    return () => { cancelled = true; };
+  }, []);
 
-  // Clear repName if repId chosen
+  // Load reps list: only for admin. Reps do NOT call /api/users.
   useEffect(() => {
-    if (repId && repName) setRepName('');
-  }, [repId]);
+    let cancelled = false;
+    async function loadReps(){
+      if (!user) {
+        if (!cancelled) { setReps([]); setRepId(''); }
+        return;
+      }
+      if (isAdmin) {
+        const arr = await usersApi.list();  // returns [] if anything goes wrong
+        if (!cancelled) setReps(Array.isArray(arr) ? arr : []);
+      } else {
+        // non-admin: do nothing (can see all deliveries); they can filter by repName
+        if (!cancelled) { setReps([]); setRepId(''); }
+      }
+    }
+    loadReps();
+    return () => { cancelled = true; };
+  }, [user, isAdmin]);
 
-  function clearFilters() {
+  // Build query & load deliveries
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true);
+        setErr('');
+        const filters = {
+          location: location || undefined,
+          from: from || undefined,
+          to: to || undefined,
+          page,
+          limit
+        };
+        // Admins can filter by specific rep or by name
+        if (isAdmin) {
+          if (repId) filters.repId = repId;
+          else if (repName) filters.repName = repName;
+        } else {
+          // Reps: do NOT force repId; allow seeing all. They can filter by repName if desired.
+          if (repName) filters.repName = repName;
+        }
+
+        const res = await api.deliveries.list(filters); // { data, pageInfo }
+        if (cancelled) return;
+        const data = res?.data ?? [];
+        setRows(Array.isArray(data) ? data : []);
+        setPageInfo(res?.pageInfo || { page, limit, total: data.length, hasMore:false });
+      } catch (e) {
+        if (!cancelled) setErr(String(e?.message || e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [location, from, to, repId, repName, page, limit, isAdmin]);
+
+  // Group deliveries by visit
+  const grouped = useMemo(() => {
+    const map = new Map();
+    for (const d of rows) {
+      const key = d.visit?._id || 'no-visit';
+      if (!map.has(key)) {
+        map.set(key, {
+          visitId: d.visit?._id || 'no-visit',
+          when: new Date(d.deliveredAt || d.createdAt || Date.now()),
+          repName: d.visit?.rep?.name || d.repName || '—',
+          locationName: d.location?.name || '—',
+          boxCount: 0,
+          total: 0,
+          outcome: d.visit?.outcome || '',
+          note: d.visit?.note || ''
+        });
+      }
+      const g = map.get(key);
+      g.boxCount += 1;
+      g.total += Number(d.total || 0) || 0;
+
+      const dt = new Date(d.deliveredAt || d.createdAt || Date.now());
+      if (dt < g.when) g.when = dt;
+
+      if (!g.locationName && d.location?.name) g.locationName = d.location.name;
+      if ((!g.repName || g.repName === '—') && (d.visit?.rep?.name || d.repName)) {
+        g.repName = d.visit?.rep?.name || d.repName;
+      }
+      if (!g.outcome && d.visit?.outcome) g.outcome = d.visit.outcome;
+      if (!g.note && d.visit?.note) g.note = d.visit.note;
+    }
+    return Array.from(map.values()).sort((a, b) => b.when - a.when);
+  }, [rows]);
+
+  const totalAmount = useMemo(
+    () => grouped.reduce((sum, g) => sum + (Number(g.total || 0) || 0), 0),
+    [grouped]
+  );
+
+  function clearFilters(){
     setLocation('');
     setFrom('');
     setTo('');
     setRepId('');
     setRepName('');
+    setLimit(25);
     setPage(1);
   }
-
-  function prevPage() {
-    setPage((p) => Math.max(1, p - 1));
-  }
-  function nextPage() {
-    if (pageInfo.hasMore) setPage((p) => p + 1);
-  }
-
-  // Grouped view (one row per visit)
-  const grouped = useMemo(() => groupByVisit(rows), [rows]);
-
-  const totalAmount = grouped.reduce((s, g) => s + Number(g.total || 0), 0);
+  function nextPage(){ if (pageInfo?.hasMore) setPage(p => p + 1); }
+  function prevPage(){ setPage(p => Math.max(1, p - 1)); }
 
   return (
     <div>
       <h2>Deliveries</h2>
 
+      {/* Filters */}
       <div className="card" style={{ display: 'grid', gap: 16 }}>
-        <div className="row responsive-3">
+        <div className="row">
           <div>
             <label>Location</label>
             <select
               className="input"
               value={location}
-              onChange={(e) => {
-                setLocation(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setLocation(e.target.value); setPage(1); }}
             >
               <option value="">All</option>
-              {locations.map((l) => (
-                <option key={l._id} value={l._id}>
-                  {l.name}
-                </option>
+              {(locations || []).map((l) => (
+                <option key={l._id} value={l._id}>{l.name}</option>
               ))}
             </select>
           </div>
+
           <div>
             <label>From (date)</label>
             <input
               className="input"
               type="date"
               value={from}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setFrom(e.target.value); setPage(1); }}
             />
           </div>
+
           <div>
             <label>To (date)</label>
             <input
               className="input"
               type="date"
               value={to}
-              onChange={(e) => {
-                setTo(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setTo(e.target.value); setPage(1); }}
             />
           </div>
         </div>
 
-        <div className="row responsive-3">
+        <div className="row">
           <div>
             <label>Rep (by user)</label>
-            <select
-              className="input"
-              value={repId}
-              onChange={(e) => {
-                setRepId(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">Any</option>
-              {reps.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name} ({(u.roles || []).join(', ') || '—'})
-                </option>
-              ))}
-            </select>
+            {isAdmin ? (
+              <select
+                className="input"
+                value={repId}
+                onChange={(e) => { setRepId(e.target.value); setPage(1); }}
+              >
+                <option value="">Any</option>
+                {(Array.isArray(reps) ? reps : []).map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name} ({(u.roles || []).join(', ') || '—'})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="input" style={{ display:'flex', alignItems:'center', height:'38px' }}>
+                All reps
+              </div>
+            )}
           </div>
+
           <div>
             <label>Rep name contains</label>
             <input
               className="input"
               placeholder="e.g. Maria"
               value={repName}
-              onChange={(e) => {
-                setRepName(e.target.value);
-                setPage(1);
-              }}
-              disabled={!!repId}
+              onChange={(e) => { setRepName(e.target.value); setPage(1); }}
+              disabled={false /* reps can filter by name too */}
             />
           </div>
+
           <div>
             <label>Page size</label>
             <select
               className="input"
               value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
             >
               {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
+                <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
         </div>
 
-
-                  <div className="row responsive-3" style={{ alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={clearFilters}>Clear Filters</button>
-              <button
-                className="btn"
-                onClick={() => {
-                  if (!grouped || grouped.length === 0) {
-                    alert('No deliveries to export for the current filters.');
-                    return;
-                  }
-                  const csv = groupedToCsv(grouped);
-                  // Build a friendly filename from filters
-                  const locPart = location ? `loc-${location}` : 'all-locations';
-                  const repPart = (repId || repName) ? `rep-${repId || repName}` : 'all-reps';
-                  const fromPart = from ? `from-${from}` : '';
-                  const toPart = to ? `to-${to}` : '';
-                  const filename = ['deliveries', locPart, repPart, fromPart, toPart]
-                    .filter(Boolean).join('_') + '.csv';
-                  downloadTextFile(filename, csv);
-                }}
-              >
-                Export CSV
-              </button>
-            </div>
-            <div style={{ marginLeft: 'auto' }}>
-              <strong>Total on page: ${totalAmount.toFixed(2)}</strong>
-            </div>
-          </div>
-
-        {/* <div className="row responsive-3">
+        <div className="row">
           <div>
-            <button className="btn" onClick={clearFilters}>
-              Clear Filters
-            </button>
+            <button className="btn" onClick={clearFilters}>Clear Filters</button>
           </div>
           <div style={{ marginLeft: 'auto' }}>
             <strong>Total on page: ${totalAmount.toFixed(2)}</strong>
           </div>
-        </div> */}
+        </div>
       </div>
 
       {err && <div style={{ color: 'red', margin: '12px 0' }}>{err}</div>}
@@ -360,7 +266,7 @@ export default function Deliveries() {
       )}
 
       {!loading && grouped.length > 0 && (
-        <div className="card  table-responsive" style={{ overflowX: 'auto' }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
               <tr>
@@ -373,20 +279,17 @@ export default function Deliveries() {
                 <th>Total</th>
               </tr>
             </thead>
-
             <tbody>
               {grouped.map((g) => (
                 <tr key={g.visitId}>
-                  <td data-label="Date">{g.when.toLocaleString()}</td>
-                  <td data-label="Rep">{g.repName}</td>
-                  <td data-label="Location">{g.locationName}</td>
-                  <td data-label="# Boxes">{g.boxCount}</td>
-                  <td data-label="Details">
-                     {g.visitId !== 'no-visit' ? (
-                        <Link to={`/deliveries/visit/${g.visitId}`}>View details</Link>
-                      ) : (
-                        <span style={{ opacity: 0.6 }}>—</span>
-                      )}
+                  <td>{g.when.toLocaleString()}</td>
+                  <td>{g.repName}</td>
+                  <td>{g.locationName}</td>
+                  <td>{g.boxCount}</td>
+                  <td>
+                    {g.visitId !== 'no-visit'
+                      ? <Link to={`/deliveries/visit/${g.visitId}`}>View details</Link>
+                      : <span style={{ opacity: 0.6 }}>—</span>}
                   </td>
                   <td>
                     {g.outcome ? (
@@ -412,15 +315,11 @@ export default function Deliveries() {
 
           <div className="row" style={{ marginTop: 12, alignItems: 'center' }}>
             <div>
-              Showing {grouped.length}  of {pageInfo.total}  results
+              Showing {grouped.length} of {pageInfo.total} results
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={prevPage} disabled={page <= 1}>
-                Prev
-              </button>
-              <button className="btn" onClick={nextPage} disabled={!pageInfo.hasMore}>
-                Next
-              </button>
+              <button className="btn" onClick={prevPage} disabled={page <= 1}>Prev</button>
+              <button className="btn" onClick={nextPage} disabled={!pageInfo.hasMore}>Next</button>
             </div>
           </div>
         </div>
@@ -428,6 +327,7 @@ export default function Deliveries() {
     </div>
   );
 }
+
 
 
 

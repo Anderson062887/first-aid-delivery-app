@@ -42,11 +42,14 @@ export default function ItemNew() {
     <div className="page">
       <h2>New Item</h2>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
-        <label>
+      <form className='card' onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 420 , margin:"0 auto"}}>
+ 
+          <label>
           Name
           <input required name="name" value={form.name} onChange={update} />
         </label>
+      
+       
 
         <label>
           SKU

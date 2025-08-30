@@ -10,12 +10,12 @@ export default function Items() {
   }, []);
 
   return (
-    <div className="page">
+    <div className="page items-page">
       <h2>Items</h2>
       <div style={{ marginBottom: 12 }}>
-        <Link to="/items/new">+ New Item</Link>
+        <Link className="btn" to="/items/new">+ New Item</Link>
       </div>
-      <table>
+      <table className="items-table">
         <thead>
           <tr>
             <th>Name</th><th>SKU</th><th>Packaging</th><th>Units/Pack</th><th>Price/Pack</th><th>Active</th>

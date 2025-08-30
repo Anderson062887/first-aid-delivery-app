@@ -240,7 +240,7 @@ export default function DeliveryVisitDetail() {
               {rows.map(d => {
                 const when = d.deliveredAt || d.createdAt;
                 return (
-                  <tr key={d._id}>
+                  <tr key={d._id} className='items-table'>
                     <td>{when ? new Date(when).toLocaleString() : '—'}</td>
                     <td>{d.box?.label || '—'}{d.box?.size ? ` (size: ${d.box.size})` : ''}</td>
                     <td>

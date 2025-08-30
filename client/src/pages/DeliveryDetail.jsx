@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,useLocation } from 'react-router-dom';
 
 const money = (n) => Number(n || 0).toFixed(2);
 const fmtAddress = (addr) => {
@@ -10,10 +10,14 @@ const fmtAddress = (addr) => {
 };
 
 export default function DeliveryDetail(){
-  const { id } = useParams();
+  const { id} = useParams();
   const [delivery, setDelivery] = useState(null);
   const [err, setErr] = useState('');
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+   const location = useLocation();
+  const params = new URLSearchParams(location.search);
+    const from = params.get('from'); 
+    
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +35,20 @@ export default function DeliveryDetail(){
     return () => { cancelled = true; };
   }, [id]);
 
+
+   function handleBack() {
+  if (from === 'edit') {
+      // Came from the edit screen — avoid the back loop
+      navigate('/deliveries');
+    } else if (window.history.length > 1) {
+      // Normal case: go back one step
+      navigate(-1);
+    } else {
+      // Fallback if no history (e.g., page was opened directly)
+      navigate('/deliveries');
+    }
+  }
+
   if (err) return <div className="card" style={{color:'red'}}>{err}</div>;
   if (!delivery) return <div className="card">Loading…</div>;
 
@@ -46,15 +64,8 @@ export default function DeliveryDetail(){
     <div>
       <div  style={{ marginBottom: 12, border:"none" }}>
         <Link className="btn" to="/deliveries">← Back to Deliveries</Link>
-        
       </div>
-          {/* /edit/
-          <div className="card">
-             <div className="row" style={{ gap:8 }}>
-              <Link className="btn" to={`/deliveries/${delivery._id}/edit`}>Edit delivery</Link>
-              <button className="btn" onClick={()=>navigate(-1)}>Back</button>
-            </div>
-        </div> */}
+  
 
       <div className="card" style={{ display:'grid', gap:6 }}>
         <h2 style={{ margin: 0 }}>Delivery Detail</h2>
@@ -98,14 +109,16 @@ export default function DeliveryDetail(){
       </div>
 
       {delivery.visit?._id && (
+        from !== "edit" && (
         <div className="card">
+          
          <button
             className="btn"
-            onClick={() => navigate(-1)} // Go back to previous page
+            onClick={handleBack} // Go back to previous page
           >
             Back
             </button>
-        </div>
+        </div>)
       )}
     </div>
   );

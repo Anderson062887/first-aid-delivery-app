@@ -95,7 +95,16 @@ export const api = {
 };
 
 export const usersApi = {
-  list: () => fetch('/api/users', { credentials: 'include' }).then(r => r.json()),
+   list: async () => {
+    try {
+      const r = await fetch('/api/users', { credentials: 'include' });
+      if (!r.ok) return [];                         // <- no access? return empty
+      const data = await r.json().catch(() => []);
+      return Array.isArray(data) ? data : [];       // <- ensure array
+    } catch {
+      return [];                                     // <- network/parse issues
+    }
+  },
 
   create: (data) => fetch('/api/users', {
     method: 'POST',
@@ -142,13 +151,17 @@ export const locationsApi = {
 };
 
 export const visitApi = {
-  start: (rep, location) => fetch('/api/visits', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rep, location })
-  }).then(async r => { if (!r.ok) throw new Error((await r.json()).error || 'start failed'); return r.json(); }),
-  
+  start: (locationId) =>
+    fetch('/api/visits', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: locationId }) // <-- IMPORTANT
+    }).then(async r => {
+      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'start failed');
+      return r.json();
+    }),
+
   get: (id) => fetch(`/api/visits/${id}?t=${Date.now()}`, {
     credentials: 'include',
     headers: { 'Cache-Control': 'no-cache' },

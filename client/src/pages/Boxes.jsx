@@ -44,7 +44,7 @@ export default function Boxes(){
   return (
     <div>
       <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <div  style={{ marginBottom: 12 }}>
         <Link className="btn" to="/locations">← Back to Locations</Link>
       </div>
 

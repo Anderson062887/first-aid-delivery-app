@@ -88,21 +88,78 @@ r.get('/', async (req, res) => {
 });
 
 // Start (or reuse) today's open visit for a rep+location
-r.post('/', async (req,res)=>{
-  const { rep, location } = req.body;
-  if(!rep || !location) return res.status(400).json({ error:'rep and location are required' });
+// r.post('/', async (req,res)=>{
+//   const { rep, location } = req.body;
+//   if(!rep || !location) return res.status(400).json({ error:'rep and location are required' });
 
-  const start = new Date(); start.setHours(0,0,0,0);
-  const end = new Date();   end.setHours(23,59,59,999);
+//   const start = new Date(); start.setHours(0,0,0,0);
+//   const end = new Date();   end.setHours(23,59,59,999);
 
-  const existing = await Visit.findOne({
-    rep, location, status: 'open',
-    startedAt: { $gte: start, $lte: end }
-  });
-  if (existing) return res.status(200).json(existing);
+//   const existing = await Visit.findOne({
+//     rep, location, status: 'open',
+//     startedAt: { $gte: start, $lte: end }
+//   });
+//   if (existing) return res.status(200).json(existing);
 
-  const v = await Visit.create({ rep, location });
-  res.status(201).json(v);
+//   const v = await Visit.create({ rep, location });
+//   res.status(201).json(v);
+// });
+
+
+// r.post('/', async (req, res) => {
+//   try {
+//     const repId = req.user?._id; // from auth cookie
+//     if (!repId) return res.status(401).json({ error: 'Auth required' });
+
+//     const { location } = req.body || {};
+//     if (!location) return res.status(400).json({ error: 'location is required' });
+
+//     // If there is an open (not submitted) visit for this rep+location, resume it
+//     let visit = await Visit.findOne({ rep: repId, location, submittedAt: null });
+//     if (!visit) {
+//       visit = await Visit.create({
+//         rep: repId,
+//         location,
+//         startedAt: new Date()
+//       });
+//     }
+
+//     // return populated basics
+//     visit = await Visit.findById(visit._id)
+//       .populate('rep', 'name roles active')
+//       .populate('location', 'name address')
+//       .lean();
+
+//     res.status(201).json(visit);
+//   } catch (e) {
+//     console.error('Start visit failed:', e);
+//     res.status(500).json({ error: 'Start visit failed' });
+//   }
+// });
+
+r.post('/', async (req, res) => {
+  try {
+    const repId = req.user?._id;
+    if (!repId) return res.status(401).json({ error: 'Auth required' });
+
+    const { location } = req.body || {};
+    if (!location) return res.status(400).json({ error: 'location is required' });
+
+    let visit = await Visit.findOne({ rep: repId, location, submittedAt: null });
+    if (!visit) {
+      visit = await Visit.create({ rep: repId, location, startedAt: new Date() });
+    }
+
+    visit = await Visit.findById(visit._id)
+      .populate('rep', 'name roles active')
+      .populate('location', 'name address')
+      .lean();
+
+    res.status(201).json(visit);
+  } catch (e) {
+    console.error('Start visit failed:', e);
+    res.status(500).json({ error: 'Start visit failed' });
+  }
 });
 
 // Get visit + per-box coverage for that location

@@ -86,17 +86,25 @@ r.get('/', async (req, res) => {
   }
 });
 
-
 r.post('/', async (req, res) => {
   try {
-    const { repName, deliveredAt, location, box, visit, lines: rawLines } = req.body;
+    const { deliveredAt, location, box, visit, lines: rawLines } = req.body || {};
 
+    // --- rep name: from visit.rep if provided, otherwise from the logged-in user ---
+    let repName = req.user?.name || '';
+    if (visit) {
+      const vdoc = await Visit.findById(visit).populate('rep', 'name').lean();
+      if (vdoc?.rep?.name) repName = vdoc.rep.name;
+    }
+
+    // --- basic validation ---
     if (!location) return res.status(400).json({ error: 'location is required' });
     if (!box)      return res.status(400).json({ error: 'box is required' });
     if (!Array.isArray(rawLines) || rawLines.length === 0) {
       return res.status(400).json({ error: 'lines must have at least one item' });
     }
 
+    // --- hydrate lines & compute totals ---
     const hydrated = [];
     let subtotal = 0;
 
@@ -111,8 +119,8 @@ r.post('/', async (req, res) => {
       const it = await Item.findById(l.item);
       if (!it) return res.status(400).json({ error: `Item not found: ${l.item}` });
 
-      // Determine packaging for this line
-      const packaging = l.packaging || it.packaging; // 'each' | 'case'
+      // packaging: prefer explicit line.packaging, fallback to item.packaging, default 'each'
+      const packaging = l.packaging || it.packaging || 'each';
 
       // Validation rules:
       // - 'each' must be whole number
@@ -121,8 +129,7 @@ r.post('/', async (req, res) => {
         return res.status(400).json({ error: 'Quantity for EACH items must be a whole number' });
       }
 
-      // unitPrice is price per pack (for 'each' it's per item; for 'case' it's per case)
-      const unitPrice = Number(it.pricePerPack);
+      const unitPrice = Number(it.pricePerPack);        // price per pack (each or case)
       const lineTotal = unitPrice * q;
 
       subtotal += lineTotal;
@@ -140,10 +147,10 @@ r.post('/', async (req, res) => {
 
     const created = await Delivery.create({
       repName,
-      deliveredAt,
+      deliveredAt: deliveredAt ? new Date(deliveredAt) : new Date(),
       location,
       box,
-      visit,
+      visit: visit || null,
       lines: hydrated,
       subtotal,
       tax,
@@ -159,6 +166,83 @@ r.post('/', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+// r.post('/', async (req, res) => {
+//   try {
+//     const { deliveredAt, location, box, visit, lines: rawLines } = req.body;
+//     const currentUserName = req.user?.name || '';
+//     const visitDoc = payload.visit ? await Visit.findById(payload.visit).populate('rep','name').lean() : null;
+// const repName = visitDoc?.rep?.name || currentUserName;
+
+//     if (!location) return res.status(400).json({ error: 'location is required' });
+//     if (!box)      return res.status(400).json({ error: 'box is required' });
+//     if (!Array.isArray(rawLines) || rawLines.length === 0) {
+//       return res.status(400).json({ error: 'lines must have at least one item' });
+//     }
+
+//     const hydrated = [];
+//     let subtotal = 0;
+
+//     for (const l of rawLines) {
+//       if (!l?.item) return res.status(400).json({ error: 'line.item is required' });
+
+//       const q = Number(l.quantity);
+//       if (!Number.isFinite(q) || q <= 0) {
+//         return res.status(400).json({ error: 'line.quantity must be > 0' });
+//       }
+
+//       const it = await Item.findById(l.item);
+//       if (!it) return res.status(400).json({ error: `Item not found: ${l.item}` });
+
+//       // Determine packaging for this line
+//       const packaging = l.packaging || it.packaging; // 'each' | 'case'
+
+//       // Validation rules:
+//       // - 'each' must be whole number
+//       // - 'case' can be fractional (e.g., 0.5)
+//       if (packaging === 'each' && !Number.isInteger(q)) {
+//         return res.status(400).json({ error: 'Quantity for EACH items must be a whole number' });
+//       }
+
+//       // unitPrice is price per pack (for 'each' it's per item; for 'case' it's per case)
+//       const unitPrice = Number(it.pricePerPack);
+//       const lineTotal = unitPrice * q;
+
+//       subtotal += lineTotal;
+//       hydrated.push({
+//         item: it._id,
+//         quantity: q,
+//         packaging,
+//         unitPrice,
+//         lineTotal
+//       });
+//     }
+
+//     const tax = 0;
+//     const total = subtotal + tax;
+
+//     const created = await Delivery.create({
+//       repName,
+//       deliveredAt,
+//       location,
+//       box,
+//       visit,
+//       lines: hydrated,
+//       subtotal,
+//       tax,
+//       total
+//     });
+
+//     const doc = await Delivery.findById(created._id)
+//       .populate('location box visit lines.item');
+
+//     res.status(201).json(doc);
+//   } catch (err) {
+//     console.error('Create delivery failed:', err);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
 
 
 // r.get('/:id', async (req, res) => {

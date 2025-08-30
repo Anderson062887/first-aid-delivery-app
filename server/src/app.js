@@ -28,7 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authRequired, requireRoles('admin'),users);
 app.use('/api/visits', authRequired,visits);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.use('/api/items',authRequired, requireRoles('admin'), items);
+app.use('/api/items',authRequired,items);
 app.use('/api/locations',authRequired, locations);
 app.use('/api/boxes',authRequired, boxes);
 app.use('/api/deliveries',authRequired, requireRoles('admin',"rep"), deliveries);
