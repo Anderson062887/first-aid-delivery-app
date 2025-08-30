@@ -8,6 +8,8 @@ import boxes from './routes/boxes.js';
 import deliveries from './routes/deliveries.js';
 import users from './routes/users.js';
 import visits from './routes/visits.js';
+import exportsRoutes from './routes/exports.js';
+import reportsRoutes from './routes/reports.js';
 
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
@@ -32,5 +34,10 @@ app.use('/api/items',authRequired,items);
 app.use('/api/locations',authRequired, locations);
 app.use('/api/boxes',authRequired, boxes);
 app.use('/api/deliveries',authRequired, requireRoles('admin',"rep"), deliveries);
+app.use("/api/exports",authRequired,requireRoles('admin'),exportsRoutes);
+app.use('/api/reports', authRequired, reportsRoutes);
 
 export default app;
+
+
+// ...

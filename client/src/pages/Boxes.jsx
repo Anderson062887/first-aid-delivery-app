@@ -44,6 +44,7 @@ export default function Boxes(){
   return (
     <div>
       <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
+  
       <div  style={{ marginBottom: 12 }}>
         <Link className="btn" to="/locations">← Back to Locations</Link>
       </div>
@@ -57,7 +58,7 @@ export default function Boxes(){
 
       {!loading && boxes.length > 0 && (
         <div className="card" style={{ overflowX:'auto' }}>
-          <table className="table">
+          <table className="table items-table">
             <thead>
               <tr>
                 <th>Label</th>

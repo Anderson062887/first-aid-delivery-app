@@ -84,7 +84,7 @@ export default function DeliveryDetail(){
   
 
       <div className="card" style={{ overflowX:'auto', marginTop: 12 }}>
-        <table className="table">
+        <table className="table items-table">
           <thead>
             <tr>
               <th>Item</th>

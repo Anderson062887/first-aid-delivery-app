@@ -19,6 +19,8 @@ import VisitEdit from './pages/VisitEdit.jsx';
 import VisitPrint from './pages/VisitPrint.jsx';
 import ProtectedRoute from './auth/ProtectedRoute.jsx';
 import Login from './pages/Login.jsx';
+import Reports from './pages/Reports.jsx';
+
 
 
 export default function App(){
@@ -38,6 +40,7 @@ export default function App(){
                   <Route path="/deliveries/:id" element={<DeliveryDetail />} />
                   <Route path="/deliveries/:id/edit" element={<DeliveryEdit/>} />
                   <Route path="/deliveries/visit/:visitId" element={<DeliveryVisitDetail/>} />
+                  <Route path="/reports" element={<Reports/>} />
 
                   <Route element={<ProtectedRoute roles={['admin']} />}>
                       <Route path="/items" element={<Items/>} />
@@ -58,4 +61,6 @@ export default function App(){
     </>
   )
 }
+
+
 

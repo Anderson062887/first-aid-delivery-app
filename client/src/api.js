@@ -204,6 +204,41 @@ export const visitApi = {
   }
 };
 
+// ///////////////////////////////////
+
+export const reportsApi = {
+  itemsUsage: async ({ from='', to='', location='', limit=10 } = {}) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (location) params.set('location', location);
+    params.set('limit', String(limit));
+    const r = await fetch(`/api/reports/items-usage?${params.toString()}`, { credentials:'include' });
+    if (!r.ok) throw new Error('Failed to load items usage');
+    return r.json();
+  },
+  repProductivity: async ({ from='', to='', location='' } = {}) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (location) params.set('location', location);
+    const r = await fetch(`/api/reports/rep-productivity?${params.toString()}`, { credentials:'include' });
+    if (!r.ok) throw new Error('Failed to load rep productivity');
+    return r.json();
+  },
+  outcomes: async ({ from='', to='', location='' } = {}) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (location) params.set('location', location);
+    const r = await fetch(`/api/reports/outcomes?${params.toString()}`, { credentials:'include' });
+    if (!r.ok) throw new Error('Failed to load outcomes data');
+    return r.json();
+  }
+};
+
+
+
 // Convenience exports
 export async function listItems() { return api.items.list(); }
 export async function createItem(d) { return api.items.create(d); }

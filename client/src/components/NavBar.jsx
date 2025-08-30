@@ -8,6 +8,7 @@ const Nav =()=>{
     return(
       <nav style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
         <NavLink to="/items" className="btn">Items</NavLink>
+        <NavLink to="/reports" className="btn">Reports</NavLink>
         {/* <NavLink to="/items/new" className="btn">New Item</NavLink> */}
         <NavLink to="/locations" className="btn">Locations</NavLink>
         <NavLink to="/boxes" className="btn">Boxes</NavLink>
@@ -16,6 +17,7 @@ const Nav =()=>{
         <NavLink to="/users" className="btn">Users</NavLink>
         <NavLink to="/users/new" className="btn">New User</NavLink>
         <NavLink to="/locations/new" className="btn">New Location</NavLink>
+        
       </nav>
       )
   
