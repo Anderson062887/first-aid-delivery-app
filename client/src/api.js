@@ -1,4 +1,60 @@
+import { isOnline, enqueue } from './offline';
+
 const API = '/api';
+
+function cacheGet(key, fallback = null) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+}
+function cacheSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+const CACHE = {
+  items: 'cache:items:v1',
+  locations: 'cache:locations:v1',
+  boxesFor: (locId) => `cache:boxes:${locId}:v1`,
+};
+
+
+async function postWithOffline(path, body) {
+  if (isOnline()) {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include'
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(()=> '');
+      throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
+    }
+    return r.json();
+  } else {
+    enqueue({ path, method:'POST', body });
+    return { _offlineQueued: true };
+  }
+}
+
+async function patchWithOffline(path, body) {
+  if (isOnline()) {
+    const r = await fetch(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include'
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(()=> '');
+      throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
+    }
+    return r.json().catch(()=> ({}));
+  } else {
+    enqueue({ path, method:'PATCH', body });
+    return { _offlineQueued: true };
+  }
+}
+
+
 
 async function http(path, opts = {}) {
   const res = await fetch(API + path, {
@@ -28,22 +84,46 @@ export const authApi = {
 // ---- Existing API ----
 export const api = {
   health: () => http('/health'),
-  items: {
+   items: {
     list: async () => {
+    // 1) try network
+    try {
       const res = await fetch('/api/items', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load items');
-      return res.json();
-    },
-    create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),
-  },
+      const data = await res.json();
+      // 2) refresh cache on success
+      cacheSet(CACHE.items, data);
+      return data;
+    } catch {
+      // 3) offline/failure -> fallback to cache
+      const cached = cacheGet(CACHE.items, []);
+      return Array.isArray(cached) ? cached : [];
+    }
+  }},
+  create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),  
   locations: {
-    list: async (q = '') => {
-      const params = new URLSearchParams();
-      if (q && q.trim()) params.set('q', q.trim());
+  list: async (q = '') => {
+    // Only the "all locations" call is cached; filtered queries require network.
+    const params = new URLSearchParams();
+    const hasQuery = !!(q && q.trim());
+    if (hasQuery) params.set('q', q.trim());
+
+    try {
       const res = await fetch(`/api/locations?${params.toString()}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load locations');
-      return res.json();
-    },
+      const data = await res.json();
+      // Only cache the unfiltered list (best for dropdowns)
+      if (!hasQuery) cacheSet(CACHE.locations, data);
+      return data;
+    } catch {
+      if (!hasQuery) {
+        const cached = cacheGet(CACHE.locations, []);
+        return Array.isArray(cached) ? cached : [];
+      }
+      // filtered + offline => no cached filtered results
+      return [];
+    }
+  },
     create: (data) => http('/locations', { method: 'POST', body: JSON.stringify(data) }),
   },
   boxes: {
@@ -59,39 +139,37 @@ export const api = {
       }).then(r => r.json()),
   },
   deliveries: {
-    list: async (filters = {}) => {
-      const params = new URLSearchParams();
+  list: async (filters = {}) => {
+    const params = new URLSearchParams();
 
-      if (filters.location) params.set('location', filters.location);
-      if (filters.from) params.set('from', filters.from);
-      if (filters.to) params.set('to', filters.to);
-      if (filters.repId) params.set('repId', filters.repId);
-      else if (filters.repName) params.set('repName', filters.repName);
+    if (filters.location) params.set('location', filters.location);
+    if (filters.from)     params.set('from', filters.from); // YYYY-MM-DD
+    if (filters.to)       params.set('to', filters.to);
+    if (filters.repId)    params.set('repId', filters.repId);
+    else if (filters.repName) params.set('repName', filters.repName);
 
-      params.set('page', filters.page ?? 1);
-      params.set('limit', filters.limit ?? 25);
+    params.set('page',  filters.page  ?? 1);
+    params.set('limit', filters.limit ?? 25);
 
-      const res = await fetch(`/api/deliveries?${params.toString()}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch deliveries');
-      return res.json();
-    },
-    create: (payload) => http('/deliveries', { method: 'POST', body: JSON.stringify(payload) }),
-    one: async (id) => {
-      const res = await fetch(`/api/deliveries/${id}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load delivery');
-      return res.json();
-    },
-    update: async (id, payload) => {
-      const r = await fetch(`/api/deliveries/${id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed to update delivery');
-      return r.json();
-    }
-  }
+    const res = await fetch(`/api/deliveries?${params.toString()}`, {
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Failed to fetch deliveries');
+    return res.json(); // { data, pageInfo, filters }
+  },
+
+  // OFFLINE-AWARE create
+  create: (payload) => postWithOffline('/api/deliveries', payload),
+
+  one: async (id) => {
+    const res = await fetch(`/api/deliveries/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to load delivery');
+    return res.json();
+  },
+
+  // OFFLINE-AWARE update
+  update: (id, payload) => patchWithOffline(`/api/deliveries/${id}`, payload)
+}
 };
 
 export const usersApi = {
@@ -150,18 +228,15 @@ export const locationsApi = {
   })
 };
 
-export const visitApi = {
-  start: (locationId) =>
-    fetch('/api/visits', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ location: locationId }) // <-- IMPORTANT
-    }).then(async r => {
-      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'start failed');
-      return r.json();
-    }),
 
+//////////////////////
+
+export const visitApi = {
+  // Start a visit (only needs location; rep is inferred from logged-in user)
+  start: (locationId) =>
+    postWithOffline('/api/visits', { location: locationId }),
+
+  // Fetch a visit
   get: (id) => fetch(`/api/visits/${id}?t=${Date.now()}`, {
     credentials: 'include',
     headers: { 'Cache-Control': 'no-cache' },
@@ -170,38 +245,18 @@ export const visitApi = {
     if (!r.ok) throw new Error('not found');
     return r.json();
   }),
-  // get: (id) => fetch(`/api/visits/${id}`, { credentials: 'include' }).then(async r => { if (!r.ok) throw new Error('not found'); return r.json(); }),
 
-  submit: (id, body = {}) => fetch(`/api/visits/${id}/submit`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(async r => { if (!r.ok) throw new Error((await r.json()).error || 'submit failed'); return r.json(); }),
+  // Submit outcome + note
+  submit: (id, body = {}) =>
+    postWithOffline(`/api/visits/${id}/submit`, body),
 
-  setNote: async (id, note = '') => {
-    const res = await fetch(`/api/visits/${id}/note`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note })
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Note save failed (${res.status}): ${text.slice(0, 120)}`);
-    }
-    return res.json().catch(() => ({ ok: true }));
-  },
-  update: async (id, payload) => {
-    const r = await fetch(`/api/visits/${id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!r.ok) throw new Error((await r.json()).error || 'Failed to update visit');
-    return r.json();
-  }
+  // Update note
+  setNote: (id, note = '') =>
+    patchWithOffline(`/api/visits/${id}/note`, { note }),
+
+  // General update
+  update: (id, payload) =>
+    patchWithOffline(`/api/visits/${id}`, payload)
 };
 
 // ///////////////////////////////////

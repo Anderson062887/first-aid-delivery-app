@@ -20,6 +20,9 @@ import VisitPrint from './pages/VisitPrint.jsx';
 import ProtectedRoute from './auth/ProtectedRoute.jsx';
 import Login from './pages/Login.jsx';
 import Reports from './pages/Reports.jsx';
+import OfflineBanner from './components/OfflineBanner.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
 
 
 
@@ -28,7 +31,8 @@ export default function App(){
     <>
       <NavBar />
       <div className="container">
-        
+    <OfflineBanner />
+    <ErrorBoundary>
         <Routes>
           <Route path="/login" element={<Login/>} />
                 <Route element={<ProtectedRoute />}>
@@ -57,6 +61,7 @@ export default function App(){
 
                   </Route>
         </Routes>
+        </ErrorBoundary>
       </div>
     </>
   )

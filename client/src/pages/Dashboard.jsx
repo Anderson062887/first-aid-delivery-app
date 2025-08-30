@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, reportsApi } from '../api'
 import { useLocation } from 'react-router-dom'
-import Flash from '../components/Flash.jsx'
+import Flash from '../components/Flash.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+
 
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -95,7 +97,7 @@ export default function Dashboard(){
   return (
     <div className="page">
       <h2>Dashboard</h2>
-
+      {/* <OfflineBanner /> */}
       {done === 'delivery' && <Flash>Delivery recorded ✅</Flash>}
       {done === 'visit' && <Flash>Visit submitted ✅</Flash>}
 

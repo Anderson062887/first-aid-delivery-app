@@ -1,90 +1,111 @@
-import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../api';
+import { isOnline } from '../offline';
 
-export default function ItemPicker({ onAdd }){
-  const [items, setItems] = useState([])
-  const [itemId, setItemId] = useState('')
-  const [qty, setQty] = useState(1)
+export default function ItemPicker({ onAdd }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [itemId, setItemId] = useState('');
+  const [packaging, setPackaging] = useState('each');
+  const [qty, setQty] = useState(1);
 
-  const selected = items.find(i => i._id === itemId)
-  const packaging = selected?.packaging || 'each'  // 'each' | 'case'
-  const unitsPerPack = selected?.unitsPerPack || 1
-  const pricePerPack = Number(selected?.pricePerPack || 0)
-
-  useEffect(() => { api.items.list().then(setItems) }, [])
-
-  function onQtyChange(e){
-    const raw = e.target.value
-    if (packaging === 'case') {
-      // allow decimals, minimum 0.01 (you can change to step 0.25 if you prefer quarters)
-      let v = Number(raw)
-      if (!Number.isFinite(v) || v <= 0) v = 0.5
-      setQty(v)
-    } else {
-      // 'each' -> integers only
-      let v = parseInt(raw, 10)
-      if (isNaN(v) || v < 1) v = 1
-      setQty(v)
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true); setErr('');
+        const data = await api.items.list(); // offline-aware; returns cache when offline
+        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!cancelled) setErr(String(e?.message || e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
-  function add(){
-    if(!selected) return
-    const quantity = packaging === 'case' ? Number(qty) : parseInt(qty, 10) || 1
+  const selected = useMemo(() => items.find(i => i._id === itemId), [items, itemId]);
+
+  function add() {
+    if (!itemId) { alert('Pick an item'); return; }
+    const q = Number(qty);
+    if (!Number.isFinite(q) || q <= 0) { alert('Enter a valid quantity'); return; }
+
+    // Validate per-packaging
+    const p = packaging || selected?.packaging || 'each';
+    if (p === 'each' && !Number.isInteger(q)) {
+      alert('Quantity for EACH must be a whole number.');
+      return;
+    }
 
     onAdd({
-      itemId: selected._id,
-      name: selected.name,
-      packaging,                           // 'each' | 'case'
-      unitPrice: pricePerPack,             // per each or per case based on item
-      quantity,
-      lineTotal: quantity * pricePerPack,  // backend will re-check & compute too
-    })
+      item: itemId,
+      packaging: p,
+      quantity: q,
+      // price is computed server-side; we don’t need it here
+    });
 
-    // reset for next add
-    setQty(packaging === 'case' ? 0.5 : 1)
-    setItemId('')
+    // reset
+    setItemId('');
+    setQty(1);
+    setPackaging('each');
   }
 
   return (
-    <div className="card">
-      <div className="row">
+    <div className="card" style={{ display:'grid', gap:8 }}>
+      <div style={{ fontWeight:600 }}>Add item</div>
+
+      {loading && <div>Loading items…</div>}
+      {(!loading && items.length === 0) && (
+        <div className="card" style={{ background:'#fffbe6', borderColor:'#ffe58f' }}>
+          {isOnline()
+            ? 'No items found.'
+            : 'No cached items available offline. Open Items once while online to cache them.'}
+        </div>
+      )}
+      {err && <div style={{ color:'red' }}>{err}</div>}
+
+      <div className="row responsive-3">
         <div>
           <label>Item</label>
-          <select className="input" value={itemId} onChange={e=>{ setItemId(e.target.value); setQty(1); }}>
-            <option value="">Select an item…</option>
+          <select className="input" value={itemId} onChange={e=>setItemId(e.target.value)} disabled={items.length===0}>
+            <option value="">— Pick item —</option>
             {items.map(i => (
               <option key={i._id} value={i._id}>
-                {i.name} — {i.packaging}{i.unitsPerPack>1?`(${i.unitsPerPack})`:''} — ${Number(i.pricePerPack).toFixed(2)}
+                {i.name} {Number.isFinite(i.pricePerPack) ? `($${Number(i.pricePerPack).toFixed(2)}/${i.packaging || 'each'})` : ''}
               </option>
             ))}
           </select>
         </div>
 
         <div>
-          <label>
-            Qty {packaging === 'case' ? '(cases, allows partial)' : '(each)'}
-          </label>
+          <label>Packaging</label>
+          <select className="input" value={packaging} onChange={e=>setPackaging(e.target.value)}>
+            <option value="each">Each</option>
+            <option value="case">Case (allows decimals)</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Qty</label>
           <input
             className="input"
             type="number"
-            min={packaging === 'case' ? '0.01' : '1'}
-            step={packaging === 'case' ? '0.25' : '1'}
+            step={packaging === 'case' ? '0.01' : '1'}
+            min="0"
             value={qty}
-            onChange={onQtyChange}
-            placeholder={packaging === 'case' ? 'e.g. 0.5' : 'e.g. 1'}
+            onChange={e=>setQty(e.target.value)}
           />
-          {packaging === 'case' && selected && (
-            <small>
-              {qty} case(s) ≈ {(Number(qty) * unitsPerPack).toFixed(2)} units • ${ (Number(qty) * pricePerPack).toFixed(2) }
-            </small>
-          )}
-        </div>
-
-        <div style={{alignSelf:'end'}}>
-          <button className="btn primary" onClick={add} disabled={!itemId}>Add</button>
         </div>
       </div>
+
+      <div>
+        <button className="btn" onClick={add} disabled={items.length===0}>Add</button>
+      </div>
     </div>
-  )
+  );
 }
+

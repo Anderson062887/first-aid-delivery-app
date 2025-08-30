@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 
+import { api } from '../api';
+import { isOnline } from '../offline';
+
 const money = (n) => Number(n || 0).toFixed(2);
 const fmtAddress = (addr) => {
   if (!addr || typeof addr !== 'object') return '';
@@ -162,6 +165,8 @@ export default function DeliveryVisitDetail() {
     total: rows.reduce((s, d) => s + Number(d.total || 0), 0),
     boxCount: rows.length
   }), [rows]);
+
+ 
 
   // Export button handler
   function exportVisitCsv() {
