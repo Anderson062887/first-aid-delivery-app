@@ -31,7 +31,7 @@ export default function App(){
     <>
       <NavBar />
       <div className="container">
-    <OfflineBanner />
+    {/* <OfflineBanner /> */}
     <ErrorBoundary>
         <Routes>
           <Route path="/login" element={<Login/>} />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { visitApi } from '../api' // <-- make sure visitApi is exported in api.js
+import { visitApi } from '../api'
 import ItemPicker from '../components/ItemPicker.jsx'
 import Cart from '../components/Cart.jsx'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -19,14 +19,35 @@ export default function NewDelivery(){
   const [locationId, setLocationId] = useState('');
   const [boxId, setBoxId] = useState('');
   const [lines, setLines] = useState([]);
-  const [repLocked, setRepLocked] = useState(false); // lock rep when coming from a Visit
+  const [items, setItems] = useState([]);   // <- NEW
+  const [repLocked, setRepLocked] = useState(false);
   const nav = useNavigate();
 
   // Load all locations
   useEffect(() => { api.locations.list().then(setLocations) }, []);
 
+  // Load items once so the Cart can show names/prices
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.items.list();
+        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setItems([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Load boxes when a location is selected (unless we preload a fixed box)
-  useEffect(() => { locationId ? api.boxes.list(locationId).then(setBoxes) : setBoxes([]) }, [locationId]);
+  useEffect(() => {
+    if (locationId) {
+      api.boxes.list(locationId).then(setBoxes);
+    } else {
+      setBoxes([]);
+    }
+  }, [locationId]);
 
   // If a specific box id is provided, preload it (and lock the selects only if preload succeeds)
   useEffect(() => {
@@ -52,12 +73,10 @@ export default function NewDelivery(){
         const { visit } = await visitApi.get(visitId);
         if (visit?.rep?.name) {
           setRepName(visit.rep.name);
-          setRepLocked(true); // lock the field so it matches the visit's rep
+          setRepLocked(true);
         }
-        // If visit also implies a fixed box via query, the other effect will handle it.
       } catch (e) {
         console.warn('Could not load visit to prefill rep name', e);
-        // keep rep editable if visit load fails
         setRepLocked(false);
       }
     })();
@@ -75,7 +94,11 @@ export default function NewDelivery(){
       repName,
       location: locationId,
       box: boxId,
-      lines: lines.map(l => ({ item: l.itemId, quantity: l.quantity, packaging: l.packaging })),
+      lines: lines.map(l => ({
+        item: l.item ?? l.itemId,      // support both shapes
+        quantity: l.quantity,
+        packaging: l.packaging
+      })),
       ...(visitId ? { visit: visitId } : {})
     };
     await api.deliveries.create(payload);
@@ -130,7 +153,7 @@ export default function NewDelivery(){
       </div>
 
       <ItemPicker onAdd={addLine} />
-      <Cart lines={lines} onRemove={removeLine} />
+      <Cart lines={lines} items={items} onRemove={removeLine} />
 
       <div className="flex" style={{justifyContent:'flex-end'}}>
         <button className="btn primary" onClick={submit}>Submit box</button>
@@ -138,6 +161,7 @@ export default function NewDelivery(){
     </div>
   )
 }
+
 
 
 

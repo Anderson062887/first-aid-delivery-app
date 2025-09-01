@@ -97,7 +97,7 @@ export default function Dashboard(){
   return (
     <div className="page">
       <h2>Dashboard</h2>
-      {/* <OfflineBanner /> */}
+      <OfflineBanner />
       {done === 'delivery' && <Flash>Delivery recorded ✅</Flash>}
       {done === 'visit' && <Flash>Visit submitted ✅</Flash>}
 
