@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { usersApi } from '../api';
 import Flash from '../components/Flash.jsx';
+import { Link } from 'react-router-dom';
+
 
 export default function Users(){
   const [rows, setRows] = useState([]);
@@ -42,6 +44,9 @@ async function toggleRole(u, role){
       <h2>Users</h2>
       {msg && <Flash>{msg}</Flash>}
       {err && <div style={{color:'red'}}>{err}</div>}
+      <div style={{margin:"20px 0"}}>
+        <Link to="/users/new" className='btn'>+ New User</Link>
+      </div>
 
       <div className="card" style={{ overflowX:'auto' }}>
         <table className="table">

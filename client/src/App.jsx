@@ -22,14 +22,37 @@ import Login from './pages/Login.jsx';
 import Reports from './pages/Reports.jsx';
 import OfflineBanner from './components/OfflineBanner.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { useEffect } from 'react';
+import { api } from '../src/api.js'
+ import { cacheItems, cacheLocations } from '../src/cache.js';
+import OnlineSyncGate from './components/OnlineSyncGate.jsx';
 
 
 
 
 export default function App(){
+
+  useEffect(() => {
+  let cancelled = false
+  ;(async () => {
+    try {
+      const [items, locations] = await Promise.all([
+        api.items.list().catch(()=>[]),
+        api.locations.list().catch(()=>[])
+      ])
+      if (!cancelled) {
+        cacheItems(Array.isArray(items) ? items : [])
+        cacheLocations(Array.isArray(locations) ? locations : [])
+      }
+    } catch {}
+  })()
+  return () => { cancelled = true }
+}, [])
+
   return (
     <>
       <NavBar />
+      <OnlineSyncGate /> 
       <div className="container">
     {/* <OfflineBanner /> */}
     <ErrorBoundary>

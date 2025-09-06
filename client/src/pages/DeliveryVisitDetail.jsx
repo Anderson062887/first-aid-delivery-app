@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
+import { cacheBoxes, cacheVisit, cacheItems } from '../cache.js'
 
 import { api } from '../api';
 import { isOnline } from '../offline';
@@ -124,22 +125,60 @@ export default function DeliveryVisitDetail() {
   const [err, setErr] = useState('');
 
   // Load the visit
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   (async () => {
+  //     try {
+  //       const r = await fetch(`/api/visits/${visitId}`);
+  //       if (!r.ok) throw new Error('Failed to load visit');
+  //       const data = await r.json();
+  //       const v = data?.visit ? data.visit : data;
+  //       if (!v?._id) throw new Error('Visit not found');
+  //       if (!cancelled) setVisitDoc(v);
+  //     } catch (e) {
+  //       if (!cancelled) setErr(String(e?.message || e));
+  //     }
+  //   })();
+  //   return () => { cancelled = true; };
+  // }, [visitId]);
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch(`/api/visits/${visitId}`);
-        if (!r.ok) throw new Error('Failed to load visit');
-        const data = await r.json();
-        const v = data?.visit ? data.visit : data;
-        if (!v?._id) throw new Error('Visit not found');
-        if (!cancelled) setVisitDoc(v);
-      } catch (e) {
-        if (!cancelled) setErr(String(e?.message || e));
+  let cancelled = false;
+
+  (async () => {
+    try {
+      setErr('');
+      // include credentials for authenticated routes
+      const r = await fetch(`/api/visits/${visitId}`, {
+        credentials: 'include',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!r.ok) throw new Error('Failed to load visit');
+      const data = await r.json();
+      const v = data?.visit ? data.visit : data;
+      if (!v?._id) throw new Error('Visit not found');
+
+      if (cancelled) return;
+      setVisitDoc(v);
+      cacheVisit(v._id, v).catch(() => {});
+
+      if (v?.location?._id) {
+        api.boxes.list(v.location._id)
+          .then(b => cacheBoxes(v.location._id, Array.isArray(b) ? b : []))
+          .catch(() => {});
       }
-    })();
-    return () => { cancelled = true; };
-  }, [visitId]);
+
+      api.items.list()
+        .then(list => cacheItems(Array.isArray(list) ? list : []))
+        .catch(() => {});
+
+    } catch (e) {
+      if (!cancelled) setErr(String(e?.message || e));
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [visitId]);
 
   // Load deliveries for this visit (and client-filter as safeguard)
   useEffect(() => {
@@ -199,7 +238,7 @@ export default function DeliveryVisitDetail() {
         </div>
 
       </div> */}
-       <div className="row" style={{ marginBottom: 12 }}>
+       <div  style={{ marginBottom: 12, display:"flex" }}>
           <button className="btn" onClick={()=>navigate(-1)}>← Back</button>
           <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
             <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>

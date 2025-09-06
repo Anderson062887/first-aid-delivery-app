@@ -125,7 +125,7 @@ export default function Dashboard(){
             </select>
           </div>
         </div>
-        <div className="row">
+        <div>
           <button className="btn" onClick={()=>{ setFrom(''); setTo(''); setLocation(''); }}>Clear</button>
           <div style={{ marginLeft:'auto' }}>
             <strong>Total: ${totalAmount.toFixed(2)}</strong>

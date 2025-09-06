@@ -15,7 +15,7 @@ const Nav =()=>{
         <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
         {/* <NavLink to="/deliveries/new" className="btn">New Delivery</NavLink> */}
         <NavLink to="/users" className="btn">Users</NavLink>
-        <NavLink to="/users/new" className="btn">New User</NavLink>
+        {/* <NavLink to="/users/new" className="btn">New User</NavLink> */}
         <NavLink to="/locations/new" className="btn">New Location</NavLink>
         
       </nav>

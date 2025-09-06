@@ -21,8 +21,8 @@ async function postWithOffline(path, body) {
     const r = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'include'
+      credentials: 'include',
+      body: JSON.stringify(body)
     });
     if (!r.ok) {
       const txt = await r.text().catch(()=> '');
@@ -40,8 +40,8 @@ async function patchWithOffline(path, body) {
     const r = await fetch(path, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'include'
+      credentials: 'include',
+      body: JSON.stringify(body)
     });
     if (!r.ok) {
       const txt = await r.text().catch(()=> '');
@@ -53,6 +53,44 @@ async function patchWithOffline(path, body) {
     return { _offlineQueued: true };
   }
 }
+
+// async function postWithOffline(path, body) {
+//   if (isOnline()) {
+//     const r = await fetch(path, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(body),
+//       credentials: 'include'
+//     });
+//     if (!r.ok) {
+//       const txt = await r.text().catch(()=> '');
+//       throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
+//     }
+//     return r.json();
+//   } else {
+//     enqueue({ path, method:'POST', body });
+//     return { _offlineQueued: true };
+//   }
+// }
+
+// async function patchWithOffline(path, body) {
+//   if (isOnline()) {
+//     const r = await fetch(path, {
+//       method: 'PATCH',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(body),
+//       credentials: 'include'
+//     });
+//     if (!r.ok) {
+//       const txt = await r.text().catch(()=> '');
+//       throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
+//     }
+//     return r.json().catch(()=> ({}));
+//   } else {
+//     enqueue({ path, method:'PATCH', body });
+//     return { _offlineQueued: true };
+//   }
+// }
 
 
 
@@ -84,22 +122,26 @@ export const authApi = {
 // ---- Existing API ----
 export const api = {
   health: () => http('/health'),
-   items: {
+  items: {
+    // GET /api/items (tries network, falls back to cache)
     list: async () => {
-    // 1) try network
-    try {
-      const res = await fetch('/api/items', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load items');
-      const data = await res.json();
-      // 2) refresh cache on success
-      cacheSet(CACHE.items, data);
-      return data;
-    } catch {
-      // 3) offline/failure -> fallback to cache
-      const cached = cacheGet(CACHE.items, []);
-      return Array.isArray(cached) ? cached : [];
-    }
-  }},
+      try {
+        const res = await fetch('/api/items', { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load items');
+        const data = await res.json();
+        cacheSet(CACHE.items, data);           // refresh cache
+        return data;
+      } catch {
+        const cached = cacheGet(CACHE.items, []);
+        return Array.isArray(cached) ? cached : [];
+      }
+    },
+        create: (data) =>
+      http('/items', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }),
+  },
   create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),  
   locations: {
   list: async (q = '') => {

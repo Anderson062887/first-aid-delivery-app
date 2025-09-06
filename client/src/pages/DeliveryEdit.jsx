@@ -248,8 +248,8 @@ export default function DeliveryEdit() {
 
         <div style={{ marginTop: 8, fontWeight: 600 }}>Total: ${money(pageTotal)}</div>
 
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary" disabled={saving} onClick={save}>
+        <div  style={{ gap: 8 }}>
+          <button className="btn primary" disabled={saving} onClick={save} style={{marginRight:"20px"}}>
             Save changes
           </button>
           {delivery && <Link className="btn" to={`/deliveries/${delivery._id}?from=edit`}>Cancel</Link>}
