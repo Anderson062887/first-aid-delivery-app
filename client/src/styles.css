@@ -51,9 +51,14 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   flex: 1 1 calc(33.333% - var(--gap));  /* 3 columns */
   min-width: 0;                           /* prevent overflow */
 }
+.brand{
+  max-width: 60px;
+  max-height: 50px;
+}
 
-
-
+.brand-link img{
+  max-width: 100%;
+}
 
 
 
@@ -65,6 +70,26 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 @media (max-width: 600px) {
   .row.responsive-3 > * {
     flex: 1 1 100%;                       /* 1 column */
+  }
+  .table.items-table {
+    display: block;             /* Allow it to shrink within container */
+    overflow-x: auto;           /* Enable horizontal scroll if still too wide */
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .table.items-table td,
+  .table.items-table th {
+    padding: 4px 6px;           /* Smaller padding */
+    font-size: 0.85rem;         /* Slightly smaller text */
+    word-break: break-word;     /* Prevent long strings from overflowing */
+  }
+
+  .table.items-table td {
+    max-width: 280;           /* Constrain cell width */
+    white-space: nowrap;        /* Keep short fields on one line */
+    overflow: hidden;
+    text-overflow: ellipsis;    /* Show … if it overflows */
   }
 }
 
@@ -271,4 +296,157 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   background: #fff;
   border: 1px solid #eee;
   border-radius: 6px;
+}
+
+/* nav bar styles */
+
+/* Responsive header + nav */
+.site-header {
+  position: sticky; top: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--gap); padding: var(--pad);
+  border-bottom: 1px solid #eee; background: #fff;
+}
+
+.brand-link { text-decoration: none; color: #222; }
+
+/* Right side (user + logout + burger) */
+.header-right { display: flex; align-items: center; gap: 8px; }
+.user-greet { opacity: .8; }
+.btn.logout { white-space: nowrap; }
+
+/* Desktop links row */
+.nav-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.nav-links .btn { text-decoration: none; }
+
+/* Burger button (hidden on desktop) */
+.nav-toggle {
+  display: none;
+  width: 40px; height: 32px;
+  border: 1px solid #ddd; border-radius: 8px; background: #fff;
+  align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; padding: 6px 8px;
+}
+.nav-toggle .bar { display: block; width: 18px; height: 2px; background: #222; }
+
+/* Mobile */
+@media (max-width: 720px) {
+  /* show burger */
+  .nav-toggle { display: inline-flex; }
+
+  /* stack links in a slide-down panel */
+  .nav-links {
+    position: absolute; left: 0; right: 0;
+    top: calc(56px + 1px);
+    display: none; flex-direction: column; gap: 8px;
+    background: #fff; border-bottom: 1px solid #eee;
+    padding: var(--pad);
+  }
+  .nav-links.open { display: flex; }
+
+  .site-header { padding: 10px var(--pad); }
+}
+
+/* Optional: highlight active route */
+a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
+
+
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.brand-link img {
+  width: 50px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+  /* border: 1px solid #eee; */
+}
+
+/* Right cluster: nav + user + hamburger */
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Links row (desktop) */
+.nav-links {
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;   /* avoid wrapping on desktop */
+}
+
+/* Active nav highlight */
+.nav-links .btn.active {
+  border-color: #222;
+  box-shadow: inset 0 0 0 1px #222;
+}
+
+/* Greeting and logout */
+.user-greet { opacity: .8; }
+
+/* Hamburger (hidden on desktop) */
+.nav-toggle {
+  display: none;
+  width: 36px;
+  height: 32px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.nav-toggle .bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #333;
+  margin: 4px 0;
+  border-radius: 2px;
+}
+
+/* --------- Responsive behavior ---------- */
+@media (max-width: 1024px) {
+  /* Hide the inline nav row; show hamburger instead */
+  .nav-links {
+    display: none;
+  }
+  .nav-links.open {
+    /* Mobile dropdown */
+    display: grid;
+    gap: 8px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 1px);
+    padding: 10px var(--pad);
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    box-shadow: 0 6px 16px rgba(0,0,0,.06);
+  }
+
+  .nav-toggle { display: inline-flex; }
+
+  /* Username inline can be hidden if you prefer only in dropdown:
+     uncomment next line to hide on mobile */
+  /* .user-greet { display: none; } */
+}
+
+/* Keep anchor buttons from underlining anywhere */
+a.btn { text-decoration: none; }
+
+/* Optional: if the row still gets cramped around ~1100px,
+   allow subtle horizontal scroll for the link row on desktop */
+@media (min-width: 1025px) {
+  .nav-links {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
