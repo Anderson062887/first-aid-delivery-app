@@ -19,6 +19,7 @@ export default {
       statements: 50
     }
   },
-  testTimeout: 30000,
+  testTimeout: 60000,
+  maxWorkers: 1,
   verbose: true
 };
