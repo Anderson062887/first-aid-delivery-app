@@ -164,7 +164,7 @@ export default function NewDelivery(){
       await api.deliveries.create(payload);
       if (visitId) nav(`/visits/${visitId}?done=delivery`);
       else nav(`/?done=delivery`);
-    } catch (err) {
+    } catch {
       // Treat as queued/temporary failure
       alert('No connection. Saved locally and will sync when back online.');
       if (visitId) nav(`/visits/${visitId}?queued=1`);

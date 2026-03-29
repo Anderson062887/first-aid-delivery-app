@@ -4,7 +4,6 @@ import Badge from '../components/Badge.jsx';
 import { cacheBoxes, cacheVisit, cacheItems } from '../cache.js'
 
 import { api } from '../api';
-import { isOnline } from '../offline';
 
 const money = (n) => Number(n || 0).toFixed(2);
 const fmtAddress = (addr) => {

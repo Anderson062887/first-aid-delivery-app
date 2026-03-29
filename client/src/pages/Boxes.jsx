@@ -26,7 +26,7 @@ export default function Boxes(){
           setLocationName('All Locations');
         } else {
           // fetch the location name only if needed
-          const locs = await fetch(`/api/locations?${new URLSearchParams({ q: locationId })}`).then(r=>r.json()).catch(()=>[]);
+          await fetch(`/api/locations?${new URLSearchParams({ q: locationId })}`).then(r=>r.json()).catch(()=>[]);
           // fallback name
           setLocationName(locationId);
         }

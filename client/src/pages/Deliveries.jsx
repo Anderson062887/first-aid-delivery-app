@@ -41,7 +41,7 @@ export default function Deliveries() {
       try {
         const locs = await api.locations.list('');
         if (!cancelled) setLocations(Array.isArray(locs) ? locs : []);
-      } catch (e) {
+      } catch {
         if (!cancelled) setLocations([]);
       }
     }
