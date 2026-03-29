@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 
-import items from './routes/items.js';
-import locations from './routes/locations.js';
-import boxes from './routes/boxes.js';
-import deliveries from './routes/deliveries.js';
+import items from './routes/Items.js';
+import locations from './routes/Locations.js';
+import boxes from './routes/Boxes.js';
+import deliveries from './routes/Deliveries.js';
 import users from './routes/users.js';
 import visits from './routes/visits.js';
 import exportsRoutes from './routes/exports.js';
