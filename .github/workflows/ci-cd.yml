@@ -155,7 +155,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: client-dist
-          path: .
+          path: dist
 
       - name: Setup SSH
         run: |
@@ -188,7 +188,7 @@ jobs:
           ssh "$DROPLET_USER@$DROPLET_IP" "mkdir -p '${APP_DIR}/client/dist'"
 
           echo "Copying built client files..."
-          scp -r ./client/dist/* "$DROPLET_USER@$DROPLET_IP:${APP_DIR}/client/dist/"
+          scp -r ./dist/* "$DROPLET_USER@$DROPLET_IP:${APP_DIR}/client/dist/"
 
           echo "Deploying server code and restart..."
           ssh "$DROPLET_USER@$DROPLET_IP" << ENDSSH
