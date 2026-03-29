@@ -4,10 +4,17 @@ import Delivery from '../models/Delivery.js';
 
 const r = Router();
 
-// tiny CSV escape
+// CSV escape with Excel formula injection protection
 function csvEscape(x) {
   if (x === null || x === undefined) return '';
-  const s = String(x);
+  let s = String(x);
+
+  // Protect against Excel formula injection
+  // Values starting with =, +, -, @, tab, or carriage return can be interpreted as formulas
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = "'" + s; // Prefix with single quote to prevent formula execution
+  }
+
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }

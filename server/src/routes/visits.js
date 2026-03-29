@@ -183,6 +183,34 @@ r.patch('/:id/note', async (req, res) => {
   res.json({ ok: true, visit: v });
 });
 
+// General update for visit (note and/or outcome)
+r.patch('/:id', async (req, res) => {
+  try {
+    const v = await Visit.findById(req.params.id);
+    if (!v) return res.status(404).json({ error: 'Visit not found' });
+
+    const { note, outcome } = req.body || {};
+
+    if (note !== undefined) {
+      v.note = String(note);
+    }
+
+    if (outcome !== undefined) {
+      const allowed = ['completed', 'partial', 'no_access', 'skipped'];
+      if (!allowed.includes(outcome)) {
+        return res.status(400).json({ error: `Invalid outcome. Use one of: ${allowed.join(', ')}` });
+      }
+      v.outcome = outcome;
+    }
+
+    await v.save();
+    res.json(v);
+  } catch (e) {
+    console.error('Update visit failed:', e);
+    res.status(500).json({ error: 'Update visit failed' });
+  }
+});
+
 // Submit only if every box has at least one delivery for this visit
 r.post('/:id/submit', async (req,res)=>{
   const { outcome = 'completed', note } = req.body || {};

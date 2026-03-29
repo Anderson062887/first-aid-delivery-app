@@ -4,24 +4,34 @@ import Box from '../models/Box.js';
 
 const r = Router();
 
+// Escape special regex characters to prevent ReDoS attacks
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** List locations */
 r.get('/', async (req, res) => {
-  const { q } = req.query;
-console.log('GET /api/locations q=', req.query.q);
-  const query = {};
-  if (q && String(q).trim()) {
-    const rx = new RegExp(String(q).trim(), 'i');
-    query.$or = [
-      { name: rx },
-      { 'address.street': rx },
-      { 'address.city': rx },
-      { 'address.state': rx },
-      { 'address.zip': rx },
-    ];
-  }
+  try {
+    const { q } = req.query;
+    const query = {};
+    if (q && String(q).trim()) {
+      const escaped = escapeRegex(String(q).trim());
+      const rx = new RegExp(escaped, 'i');
+      query.$or = [
+        { name: rx },
+        { 'address.street': rx },
+        { 'address.city': rx },
+        { 'address.state': rx },
+        { 'address.zip': rx },
+      ];
+    }
 
-  const locations = await Location.find(query).sort({ name: 1 });
-  res.json(locations);
+    const locations = await Location.find(query).sort({ name: 1 });
+    res.json(locations);
+  } catch (e) {
+    console.error('List locations failed:', e);
+    res.status(500).json({ error: 'Failed to list locations' });
+  }
 });
 
 /**
@@ -60,15 +70,51 @@ r.post('/', async (req, res) => {
   res.status(201).json(loc);
 });
 
-/** Update / Delete (unchanged) */
+/** Update location */
 r.put('/:id', async (req, res) => {
-  const loc = await Location.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(loc);
+  try {
+    const { name, address } = req.body;
+
+    // Only allow updating specific fields
+    const updates = {};
+    if (name !== undefined) updates.name = String(name);
+    if (address !== undefined) {
+      updates.address = {
+        street: String(address.street || ''),
+        city: String(address.city || ''),
+        state: String(address.state || ''),
+        zip: String(address.zip || '')
+      };
+    }
+
+    const loc = await Location.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!loc) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+    res.json(loc);
+  } catch (e) {
+    console.error('Update location failed:', e);
+    res.status(400).json({ error: e.message || 'Update location failed' });
+  }
 });
 
+/** Delete location */
 r.delete('/:id', async (req, res) => {
-  await Location.findByIdAndDelete(req.params.id);
-  res.sendStatus(204);
+  try {
+    const loc = await Location.findByIdAndDelete(req.params.id);
+    if (!loc) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+    res.sendStatus(204);
+  } catch (e) {
+    console.error('Delete location failed:', e);
+    res.status(500).json({ error: 'Delete location failed' });
+  }
 });
 
 export default r;

@@ -40,7 +40,6 @@ r.get('/:id', async (req, res) => {
 r.post('/', requireRoles('admin'), async (req, res) => {
   try {
     const { name,sku,packaging = 'each', unitsPerPack = 1, pricePerPack } = req.body || {};
-    console.log(req.body)
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (pricePerPack == null) return res.status(400).json({ error: 'pricePerPack is required' });
 
@@ -81,11 +80,14 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
  */
 r.delete('/:id', requireRoles('admin'), async (req, res) => {
   try {
-    await Item.findByIdAndDelete(req.params.id);
+    const item = await Item.findByIdAndDelete(req.params.id);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
     res.json({ ok: true });
   } catch (e) {
     console.error('Item delete failed:', e);
-    res.status(400).json({ error: e.message || 'Delete item failed' });
+    res.status(500).json({ error: e.message || 'Delete item failed' });
   }
 });
 

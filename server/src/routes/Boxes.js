@@ -4,17 +4,26 @@ import Box from '../models/Box.js';
 const r = Router();
 
 r.get('/', async (req, res) => {
-  const { location } = req.query;
-  const q = location ? { location } : {};
-  const boxes = await Box.find(q).populate('location').populate('items.item');
-  res.json(boxes);
+  try {
+    const { location } = req.query;
+    const q = location ? { location } : {};
+    const boxes = await Box.find(q).populate('location').populate('items.item');
+    res.json(boxes);
+  } catch (e) {
+    console.error('List boxes failed:', e);
+    res.status(500).json({ error: 'Failed to list boxes' });
+  }
 });
 
-// ADD THIS:
 r.get('/:id', async (req, res) => {
-  const b = await Box.findById(req.params.id).populate('location').populate('items.item');
-  if (!b) return res.sendStatus(404);
-  res.json(b);
+  try {
+    const b = await Box.findById(req.params.id).populate('location').populate('items.item');
+    if (!b) return res.status(404).json({ error: 'Box not found' });
+    res.json(b);
+  } catch (e) {
+    console.error('Get box failed:', e);
+    res.status(500).json({ error: 'Failed to get box' });
+  }
 });
 
 export default r;

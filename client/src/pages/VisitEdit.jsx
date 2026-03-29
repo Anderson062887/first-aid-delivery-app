@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api } from '../api';
+import { visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
 
 const kinds = ['completed','partial','no_access','skipped'];
@@ -16,8 +16,9 @@ export default function VisitEdit(){
 
   useEffect(() => {
     let cancelled = false;
-    api.visits.one(id).then(v => {
+    visitApi.get(id).then(data => {
       if (cancelled) return;
+      const v = data?.visit || data;
       setVisit(v);
       setNote(v.note || '');
       setOutcome(v.outcome || '');
@@ -28,9 +29,9 @@ export default function VisitEdit(){
   async function save(){
     try{
       setErr(''); setMsg('');
-      const updated = await api.visits.update(id, { note, outcome });
+      const updated = await visitApi.update(id, { note, outcome });
       setMsg('Visit updated.');
-      nav(`/deliveries/visit/${updated._id}`); // back to visit details
+      nav(`/deliveries/visit/${updated._id || id}`);
     }catch(e){ setErr(String(e?.message || e)); }
   }
 

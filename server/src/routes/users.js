@@ -5,6 +5,14 @@ import User from '../models/User.js';
 
 const r = Router();
 
+// Valid role values
+const VALID_ROLES = ['rep', 'admin'];
+
+function validateRoles(roles) {
+  if (!Array.isArray(roles)) return false;
+  return roles.every(r => VALID_ROLES.includes(r));
+}
+
 /**
  * List users (no passwordHash leaked)
  */
@@ -33,12 +41,18 @@ r.post('/', async (req, res) => {
       return res.status(400).json({ error: 'User already exists for this email' });
     }
 
+    // Validate roles
+    const userRoles = Array.isArray(roles) && roles.length ? roles : ['rep'];
+    if (!validateRoles(userRoles)) {
+      return res.status(400).json({ error: `Invalid roles. Allowed: ${VALID_ROLES.join(', ')}` });
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name: name || '',
       email: String(email).toLowerCase().trim(),
-      roles: Array.isArray(roles) && roles.length ? roles : ['rep'],
+      roles: userRoles,
       active: !!active,
       passwordHash
     });
@@ -81,7 +95,12 @@ r.patch('/:id', async (req, res) => {
       }
     }
     if (active !== undefined) u.active = !!active;
-    if (roles !== undefined) u.roles = Array.isArray(roles) ? roles : u.roles;
+    if (roles !== undefined) {
+      if (!Array.isArray(roles) || !validateRoles(roles)) {
+        return res.status(400).json({ error: `Invalid roles. Allowed: ${VALID_ROLES.join(', ')}` });
+      }
+      u.roles = roles;
+    }
 
     if (password !== undefined && password !== '') {
       u.passwordHash = await bcrypt.hash(password, 10);
@@ -101,8 +120,16 @@ r.patch('/:id', async (req, res) => {
  * Delete user
  */
 r.delete('/:id', async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Delete user failed:', e);
+    res.status(500).json({ error: 'Delete user failed' });
+  }
 });
 
 export default r;

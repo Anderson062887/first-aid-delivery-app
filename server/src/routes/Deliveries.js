@@ -104,20 +104,33 @@ r.post('/', async (req, res) => {
       return res.status(400).json({ error: 'lines must have at least one item' });
     }
 
+    // --- Validate all items exist upfront (prevents race condition) ---
+    const itemIds = rawLines.map(l => l?.item).filter(Boolean);
+    if (itemIds.length !== rawLines.length) {
+      return res.status(400).json({ error: 'line.item is required for all lines' });
+    }
+
+    const items = await Item.find({ _id: { $in: itemIds } }).lean();
+    const itemMap = new Map(items.map(it => [String(it._id), it]));
+
+    // Check all items were found
+    for (const id of itemIds) {
+      if (!itemMap.has(String(id))) {
+        return res.status(400).json({ error: `Item not found: ${id}` });
+      }
+    }
+
     // --- hydrate lines & compute totals ---
     const hydrated = [];
     let subtotal = 0;
 
     for (const l of rawLines) {
-      if (!l?.item) return res.status(400).json({ error: 'line.item is required' });
-
       const q = Number(l.quantity);
       if (!Number.isFinite(q) || q <= 0) {
         return res.status(400).json({ error: 'line.quantity must be > 0' });
       }
 
-      const it = await Item.findById(l.item);
-      if (!it) return res.status(400).json({ error: `Item not found: ${l.item}` });
+      const it = itemMap.get(String(l.item));
 
       // packaging: prefer explicit line.packaging, fallback to item.packaging, default 'each'
       const packaging = l.packaging || it.packaging || 'each';
@@ -129,8 +142,14 @@ r.post('/', async (req, res) => {
         return res.status(400).json({ error: 'Quantity for EACH items must be a whole number' });
       }
 
-      const unitPrice = Number(it.pricePerPack);        // price per pack (each or case)
-      const lineTotal = unitPrice * q;
+      // Validate price is a valid positive number
+      const unitPrice = Number(it.pricePerPack);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return res.status(400).json({ error: `Invalid price for item: ${it.name || l.item}` });
+      }
+
+      // Use fixed-point math to avoid floating point errors
+      const lineTotal = Math.round(unitPrice * q * 100) / 100;
 
       subtotal += lineTotal;
       hydrated.push({
@@ -143,7 +162,9 @@ r.post('/', async (req, res) => {
     }
 
     const tax = 0;
-    const total = subtotal + tax;
+    // Round subtotal to avoid floating point errors
+    subtotal = Math.round(subtotal * 100) / 100;
+    const total = Math.round((subtotal + tax) * 100) / 100;
 
     const created = await Delivery.create({
       repName,
