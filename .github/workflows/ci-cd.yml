@@ -100,10 +100,11 @@ jobs:
 
       - name: Run tests
         working-directory: ./server
-        run: npm run test
+        run: npm run test -- --forceExit --detectOpenHandles 2>&1
         env:
           JWT_SECRET: test-jwt-secret-for-ci
           MONGOMS_VERSION: 7.0.11
+          DEBUG: mongodb-memory-server*
 
   # ============================================
   # Stage 3: Build
