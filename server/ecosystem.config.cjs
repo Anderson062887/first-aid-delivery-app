@@ -12,8 +12,8 @@ module.exports = {
       NODE_ENV: 'production',
       PORT: 4000
     },
-    error_file: '/var/log/pm2/first-aid-error.log',
-    out_file: '/var/log/pm2/first-aid-out.log',
+    error_file: '~/.pm2/logs/first-aid-error.log',
+    out_file: '~/.pm2/logs/first-aid-out.log',
     merge_logs: true,
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
   }]
