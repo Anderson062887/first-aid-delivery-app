@@ -172,25 +172,14 @@ jobs:
         run: |
           set -e
 
-          echo "Checking required values..."
           test -n "$DROPLET_IP" || (echo "DROPLET_IP is empty" && exit 1)
           test -n "$DROPLET_USER" || (echo "DROPLET_USER is empty" && exit 1)
           test -n "$APP_DIR" || (echo "APP_DIR is empty" && exit 1)
 
-          echo "Checking local files..."
-          pwd
-          ls -la
-          ls -la client || true
-          ls -la client/dist || true
-          find . -maxdepth 3 -type d | sort
-
-          echo "Ensuring remote dist folder exists..."
           ssh "$DROPLET_USER@$DROPLET_IP" "mkdir -p '${APP_DIR}/client/dist'"
 
-          echo "Copying built client files..."
           scp -r ./dist/* "$DROPLET_USER@$DROPLET_IP:${APP_DIR}/client/dist/"
 
-          echo "Deploying server code and restart..."
           ssh "$DROPLET_USER@$DROPLET_IP" << ENDSSH
             set -e
             cd "$APP_DIR"
