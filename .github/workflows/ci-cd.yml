@@ -155,14 +155,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: client-dist
-          path: client/dist
+          path: .
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.DROPLET_IP }}" >> ~/.ssh/known_hosts
 
       - name: Deploy to server
         env:
@@ -170,13 +170,30 @@ jobs:
           DROPLET_USER: ${{ secrets.DROPLET_USER }}
           APP_DIR: ${{ secrets.APP_DIR }}
         run: |
-          # Copy built client files
-          scp -r client/dist/* $DROPLET_USER@$DROPLET_IP:$APP_DIR/client/dist/
+          set -e
 
-          # Deploy server code and restart
-          ssh $DROPLET_USER@$DROPLET_IP << ENDSSH
+          echo "Checking required values..."
+          test -n "$DROPLET_IP" || (echo "DROPLET_IP is empty" && exit 1)
+          test -n "$DROPLET_USER" || (echo "DROPLET_USER is empty" && exit 1)
+          test -n "$APP_DIR" || (echo "APP_DIR is empty" && exit 1)
+
+          echo "Checking local files..."
+          pwd
+          ls -la
+          ls -la client || true
+          ls -la client/dist || true
+          find . -maxdepth 3 -type d | sort
+
+          echo "Ensuring remote dist folder exists..."
+          ssh "$DROPLET_USER@$DROPLET_IP" "mkdir -p '${APP_DIR}/client/dist'"
+
+          echo "Copying built client files..."
+          scp -r ./client/dist/* "$DROPLET_USER@$DROPLET_IP:${APP_DIR}/client/dist/"
+
+          echo "Deploying server code and restart..."
+          ssh "$DROPLET_USER@$DROPLET_IP" << ENDSSH
             set -e
-            cd ${APP_DIR}
+            cd "$APP_DIR"
 
             echo "==> Pulling latest code..."
             git fetch origin main
