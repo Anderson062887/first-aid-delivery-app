@@ -1,0 +1,206 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Stage 1: Lint
+  # ============================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Install server dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Lint client
+        working-directory: ./client
+        run: npm run lint
+
+      - name: Lint server
+        working-directory: ./server
+        run: npm run lint
+
+  # ============================================
+  # Stage 2: Test (parallel jobs)
+  # ============================================
+  test-client:
+    name: Test Client
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./client
+        run: npm run test
+
+  test-server:
+    name: Test Server
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./server
+        run: npm run test
+        env:
+          JWT_SECRET: test-jwt-secret-for-ci
+
+  # ============================================
+  # Stage 3: Build
+  # ============================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test-client, test-server]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build client
+        working-directory: ./client
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist
+          retention-days: 1
+
+  # ============================================
+  # Stage 4: Deploy (only on main branch push)
+  # ============================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ secrets.APP_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        env:
+          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+          DROPLET_USER: ${{ secrets.DROPLET_USER }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          # Copy built client files
+          scp -r client/dist/* $DROPLET_USER@$DROPLET_IP:$APP_DIR/client/dist/
+
+          # Deploy server code and restart
+          ssh $DROPLET_USER@$DROPLET_IP << ENDSSH
+            set -e
+            cd ${APP_DIR}
+
+            echo "==> Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Installing server dependencies..."
+            cd server
+            npm ci --production
+
+            echo "==> Restarting server with PM2..."
+            pm2 reload first-aid-server --update-env || pm2 start src/index.js --name first-aid-server
+
+            echo "==> Deployment complete!"
+            pm2 status
+          ENDSSH
+
+      - name: Health check
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          echo "Waiting for server to be ready..."
+          sleep 10
+
+          for i in {1..5}; do
+            if curl -sf "$APP_URL/api/health" > /dev/null; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+
+          echo "Health check failed after 5 attempts"
+          exit 1
