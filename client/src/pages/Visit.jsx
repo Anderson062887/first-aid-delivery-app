@@ -4,10 +4,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import { cacheVisit, cacheBoxes, cacheItems, getBoxes } from '../cache.js';
-import Flash from '../components/Flash.jsx';
-
-
-
 
 const outcomeKind = (o) =>
   o === 'completed' ? 'completed' :
@@ -23,19 +19,18 @@ function getBoxId(b) {
 }
 
 export default function Visit(){
-  const { id } = useParams();               // /visits/:id
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [visit, setVisit] = useState(null);
   const [boxes, setBoxes] = useState([]);
   const [deliveredIds, setDeliveredIds] = useState(new Set());
-  const [outcome, setOutcome] = useState('');   // <— bring back user-selectable outcome
+  const [outcome, setOutcome] = useState('');
   const [note, setNote] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const readonly = !!visit?.submittedAt;
 
@@ -52,7 +47,7 @@ export default function Visit(){
 
         if (cancelled) return;
         setVisit(v);
-        setOutcome(v.outcome || '');    // preset previous outcome if any
+        setOutcome(v.outcome || '');
         setNote(v.note || '');
 
         cacheVisit(v._id, v).catch(()=>{});
@@ -64,7 +59,6 @@ export default function Visit(){
             if (!cancelled) setBoxes(Array.isArray(list) ? list : []);
             cacheBoxes(v.location._id, Array.isArray(list) ? list : []).catch(()=>{});
           } catch {
-            // fallback to cache if offline
             const cached = await getBoxes(v.location._id);
             if (!cancelled) setBoxes(Array.isArray(cached) ? cached : []);
           }
@@ -98,7 +92,6 @@ export default function Visit(){
         const j = await r.json();
         const list = Array.isArray(j?.data) ? j.data : (Array.isArray(j) ? j : []);
 
-        // Only this visit (populated or plain id)
         const onlyThisVisit = list.filter(d => String(d?.visit?._id || d?.visit) === String(id));
 
         const ids = new Set(
@@ -125,36 +118,34 @@ export default function Visit(){
     }
   }, [allCovered, outcome, readonly]);
 
-  async function submitVisit(){
-    // Guard: completed requires all boxes refilled
+  function handleSubmitClick() {
     if (outcome === 'completed' && !allCovered) {
-      // alert('To submit as completed, you must refill all boxes.');
       setErr('To submit as completed, you must refill all boxes.')
       return;
     }
+    setShowConfirm(true);
+  }
+
+  async function submitVisit(){
+    setShowConfirm(false);
     try{
       setSaving(true);
       const payload = { outcome: outcome || undefined, note };
       await visitApi.submit(id, payload);
 
-      // Reflect locally (so the page shows submitted state)
       setVisit(v => v ? { ...v, outcome: payload.outcome || v.outcome, note, submittedAt: new Date().toISOString() } : v);
 
       navigate(`/?done=visit`);
     }catch(e){
-      // alert(e?.message || 'Failed to submit visit');
-        
-                console.error('Submit visit failed:', e);
-          let msg = e?.message || 'Failed to submit visit. Please try again.';
-          if (msg.includes('outcome')) {
-            msg = '⚠️ Please select an outcome before submitting.';
-          } else if (msg.includes('lines') || msg.includes('boxes')) {
-            msg = '⚠️ Please refill at least one box before submitting.';
-          }
-  setErr(msg);
-  const timeoutId = setTimeout(() => setErr(''), 1500);
-    return () => clearTimeout(timeoutId);
-            
+      console.error('Submit visit failed:', e);
+      let msg = e?.message || 'Failed to submit visit. Please try again.';
+      if (msg.includes('outcome')) {
+        msg = 'Please select an outcome before submitting.';
+      } else if (msg.includes('lines') || msg.includes('boxes')) {
+        msg = 'Please refill at least one box before submitting.';
+      }
+      setErr(msg);
+      setTimeout(() => setErr(''), 3000);
     }finally{
       setSaving(false);
     }
@@ -167,8 +158,6 @@ export default function Visit(){
   const locName   = visit.location?.name || '—';
   const started   = visit.startedAt ? new Date(visit.startedAt).toLocaleString() : '—';
   const submitted = visit.submittedAt ? new Date(visit.submittedAt).toLocaleString() : null;
-
-
 
   return (
     <div>
@@ -239,19 +228,18 @@ export default function Visit(){
           </div>
         )}
       </div>
-      {err && (
-              <div style={{
-              background: 'tomato',
-              color: '#fff',
-              padding: '8px 12px',
-              borderRadius: 4,
-              marginBottom: 10
-            }}>
-              {err}
-            </div>
-          )}
-  
 
+      {err && (
+        <div style={{
+          background: 'tomato',
+          color: '#fff',
+          padding: '8px 12px',
+          borderRadius: 4,
+          marginBottom: 10
+        }}>
+          {err}
+        </div>
+      )}
 
       <div className="card" style={{ display:'grid', gap:10 }}>
         <h3 style={{ margin:0 }}>Submit Visit</h3>
@@ -289,159 +277,52 @@ export default function Visit(){
           placeholder="Optional note about this visit…"
           readOnly={readonly}
         />
- <div  style={{ justifyContent:'flex-end' }}>
+        <div style={{ justifyContent:'flex-end' }}>
           <button
             className="btn primary"
-            onClick={submitVisit}
+            onClick={handleSubmitClick}
             disabled={readonly || saving || (outcome === 'completed' && !allCovered)}
             title={
               readonly
                 ? 'This visit has already been submitted'
                 : (outcome === 'completed' && !allCovered ? 'Refill all boxes to submit as completed' : '')
             }
+            aria-label="Submit visit"
           >
             {saving ? 'Submitting…' : (readonly ? 'Visit Submitted' : 'Submit Visit')}
           </button>
         </div>
-       
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-title"
+        >
+          <div className="card" style={{ maxWidth: 400, background: '#fff' }}>
+            <h3 id="confirm-title" style={{ margin: '0 0 12px' }}>Confirm Submission</h3>
+            <p>Are you sure you want to submit this visit as <strong>{outcome || 'unspecified'}</strong>?</p>
+            <p style={{ opacity: 0.8, fontSize: 14 }}>This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn" onClick={() => setShowConfirm(false)}>Cancel</button>
+              <button className="btn primary" onClick={submitVisit} disabled={saving}>
+                {saving ? 'Submitting…' : 'Yes, Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-
-
-
-
-
-
-// import { useEffect, useState } from 'react';
-// import { visitApi } from '../api';
-// import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-// import Flash from '../components/Flash.jsx';
-
-// function useQuery(){ return new URLSearchParams(useLocation().search); }
-
-// export default function VisitPage(){
-//   const { id } = useParams();
-//   const nav = useNavigate();
-//   const q = useQuery();
-//   const done = q.get('done');
-//   const [data, setData] = useState(null);
-//   const [error, setError] = useState('');
-
-//   const [note, setNote] = useState('');
-//   const [outcome, setOutcome] = useState('completed');
-//   const [savingNote, setSavingNote] = useState(false);
-
-//   async function load(){
-//     try {
-//       const res = await visitApi.get(id);
-//       setData(res);
-//       setError('');
-//       if (res?.visit?.note !== undefined) setNote(res.visit.note || '');
-//     } catch(e){
-//       setError(String(e.message||e));
-//     }
-//   }
-//   useEffect(()=>{ load(); },[id]);
-
-//   async function saveNote(){
-//     try {
-//       setSavingNote(true);
-//       await visitApi.setNote(id, note);
-//     } catch(e){
-//       setError(String(e.message||e));
-//     } finally {
-//       setSavingNote(false);
-//     }
-//   }
-
-//   async function submit(){
-//     try {
-//       await visitApi.submit(id, { outcome, note });
-//       nav('/?done=visit');
-//     } catch(e){
-//       setError(String(e.message||e));
-//     }
-//   }
-
-//   if(!data) return <div>Loading…</div>;
-//   const { visit, boxes } = data;
-//   const allCovered = boxes.every(b => b.covered);
-
-//   // If outcome is 'completed', require all boxes covered; else allow submit
-//   const canSubmit = (outcome === 'completed' ? allCovered : true) && visit.status !== 'submitted';
-
-//   return (
-//     <div>
-//       <h2>Visit: {visit.location.name} — Rep: {visit.rep.name}</h2>
-
-//       {done === 'delivery' && <Flash>Delivery recorded for this visit ✅</Flash>}
-//       {error && <div style={{color:'red', marginBottom:10}}>{error}</div>}
-
-//       <div className="card" style={{ display:'grid', gap:10 }}>
-//         <div>
-//           <label style={{ fontWeight:600 }}>Outcome</label>
-//           <div className="row" style={{ gap:12 }}>
-//             {['completed','partial','no_access','skipped'].map(o => (
-//               <label key={o} style={{ display:'flex', gap:6, alignItems:'center' }}>
-//                 <input
-//                   type="radio"
-//                   name="outcome"
-//                   value={o}
-//                   checked={outcome === o}
-//                   onChange={e => setOutcome(e.target.value)}
-//                 />
-//                 {o.replace('_',' ')}
-//               </label>
-//             ))}
-//           </div>
-//           {outcome === 'completed' && !allCovered && (
-//             <div style={{ color:'#a00', marginTop:6 }}>
-//               To submit as <b>completed</b>, all boxes must be refilled.
-//             </div>
-//           )}
-//         </div>
-
-//         <div>
-//           <label style={{ fontWeight:600 }}>Note (optional)</label>
-//           <textarea
-//             className="input"
-//             rows={3}
-//             placeholder="e.g., Gate locked; left voicemail; only Box A accessible"
-//             value={note}
-//             onChange={e=>setNote(e.target.value)}
-//             onBlur={saveNote}
-//           />
-//           <div style={{ opacity:.7, fontSize:12 }}>
-//             {savingNote ? 'Saving…' : 'Note saves automatically when you leave the field.'}
-//           </div>
-//         </div>
-//       </div>
-
-//       {boxes.map(b => (
-//         <div className="card" key={b.boxId}>
-//           <strong>{b.label}</strong> — Size: {b.size} — {b.covered ? '✅ Refilled' : '❌ Not filled'}
-//           {!b.covered && (
-//             <div style={{marginTop:8}}>
-//               <Link className="btn" to={`/deliveries/new?visit=${encodeURIComponent(visit._id)}&box=${encodeURIComponent(String(b.boxId || ''))}`}>
-//                 Refill this box
-//               </Link>
-//             </div>
-//           )}
-//         </div>
-//       ))}
-
-//       <div className="card">
-//         <button className="btn primary" disabled={!canSubmit} onClick={submit}>
-//           Submit Visit
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-

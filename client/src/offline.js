@@ -14,6 +14,28 @@ function saveQueue(q) {
   localStorage.setItem(KEY, JSON.stringify(q));
 }
 
+// Get queue for display
+export function getQueue() {
+  return loadQueue();
+}
+
+// Remove item from queue
+export function removeFromQueue(id) {
+  const q = loadQueue();
+  const filtered = q.filter(item => item.id !== id);
+  saveQueue(filtered);
+}
+
+// Clear entire queue
+export function clearQueue() {
+  saveQueue([]);
+}
+
+// Get queue count
+export function getQueueCount() {
+  return loadQueue().length;
+}
+
 export function enqueue(req) {
   const q = loadQueue();
   const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() :

@@ -17,14 +17,15 @@ import DeliveryVisitDetail from './pages/DeliveryVisitDetail.jsx';
 import DeliveryEdit from './pages/DeliveryEdit.jsx';
 import VisitEdit from './pages/VisitEdit.jsx';
 import VisitPrint from './pages/VisitPrint.jsx';
+import OfflineQueue from './pages/OfflineQueue.jsx';
 import ProtectedRoute from './auth/ProtectedRoute.jsx';
 import Login from './pages/Login.jsx';
 import Reports from './pages/Reports.jsx';
-import OfflineBanner from './components/OfflineBanner.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import SyncToast from './components/SyncToast.jsx';
 import { useEffect } from 'react';
 import { api } from '../src/api.js'
- import { cacheItems, cacheLocations } from '../src/cache.js';
+import { cacheItems, cacheLocations } from '../src/cache.js';
 import OnlineSyncGate from './components/OnlineSyncGate.jsx';
 
 
@@ -52,10 +53,10 @@ export default function App(){
   return (
     <>
       <NavBar />
-      <OnlineSyncGate /> 
+      <OnlineSyncGate />
+      <SyncToast />
       <div className="container">
-    {/* <OfflineBanner /> */}
-    <ErrorBoundary>
+        <ErrorBoundary>
         <Routes>
           <Route path="/login" element={<Login/>} />
                 <Route element={<ProtectedRoute />}>
@@ -81,8 +82,8 @@ export default function App(){
                   <Route path="/visits/:id" element={<Visit/>} />
                   <Route path="/visits/:id/edit" element={<VisitEdit/>} />
                   <Route path="/visits/:visitId/print" element={<VisitPrint/>} />
-
-                  </Route>
+                  <Route path="/offline-queue" element={<OfflineQueue/>} />
+                </Route>
         </Routes>
         </ErrorBoundary>
       </div>

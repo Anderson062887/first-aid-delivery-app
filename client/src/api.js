@@ -2,6 +2,24 @@ import { isOnline, enqueue } from './offline';
 
 const API = '/api';
 
+// Get CSRF token from cookie
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Get headers with CSRF token for state-changing requests
+function getHeaders(method = 'GET') {
+  const headers = { 'Content-Type': 'application/json' };
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['x-csrf-token'] = csrfToken;
+    }
+  }
+  return headers;
+}
+
 function cacheGet(key, fallback = null) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
@@ -15,12 +33,31 @@ const CACHE = {
   boxesFor: (locId) => `cache:boxes:${locId}:v1`,
 };
 
+// Cache invalidation helpers
+function invalidateCache(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
+
+function invalidateItemsCache() {
+  invalidateCache(CACHE.items);
+}
+
+function invalidateLocationsCache() {
+  invalidateCache(CACHE.locations);
+}
+
+function invalidateBoxesCache(locationId) {
+  if (locationId) {
+    invalidateCache(CACHE.boxesFor(locationId));
+  }
+}
+
 
 async function postWithOffline(path, body) {
   if (isOnline()) {
     const r = await fetch(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders('POST'),
       credentials: 'include',
       body: JSON.stringify(body)
     });
@@ -39,7 +76,7 @@ async function patchWithOffline(path, body) {
   if (isOnline()) {
     const r = await fetch(path, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders('PATCH'),
       credentials: 'include',
       body: JSON.stringify(body)
     });
@@ -54,50 +91,13 @@ async function patchWithOffline(path, body) {
   }
 }
 
-// async function postWithOffline(path, body) {
-//   if (isOnline()) {
-//     const r = await fetch(path, {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify(body),
-//       credentials: 'include'
-//     });
-//     if (!r.ok) {
-//       const txt = await r.text().catch(()=> '');
-//       throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
-//     }
-//     return r.json();
-//   } else {
-//     enqueue({ path, method:'POST', body });
-//     return { _offlineQueued: true };
-//   }
-// }
-
-// async function patchWithOffline(path, body) {
-//   if (isOnline()) {
-//     const r = await fetch(path, {
-//       method: 'PATCH',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify(body),
-//       credentials: 'include'
-//     });
-//     if (!r.ok) {
-//       const txt = await r.text().catch(()=> '');
-//       throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
-//     }
-//     return r.json().catch(()=> ({}));
-//   } else {
-//     enqueue({ path, method:'PATCH', body });
-//     return { _offlineQueued: true };
-//   }
-// }
-
 
 
 async function http(path, opts = {}) {
+  const method = opts.method || 'GET';
   const res = await fetch(API + path, {
-    credentials: 'include', // send/receive cookies
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    headers: getHeaders(method),
     ...opts
   });
   if (!res.ok) {
@@ -136,11 +136,14 @@ export const api = {
         return Array.isArray(cached) ? cached : [];
       }
     },
-        create: (data) =>
-      http('/items', {
+    create: async (data) => {
+      const result = await http('/items', {
         method: 'POST',
         body: JSON.stringify(data)
-      }),
+      });
+      invalidateItemsCache();
+      return result;
+    },
   },
   create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),  
   locations: {
@@ -166,19 +169,26 @@ export const api = {
       return [];
     }
   },
-    create: (data) => http('/locations', { method: 'POST', body: JSON.stringify(data) }),
+    create: async (data) => {
+      const result = await http('/locations', { method: 'POST', body: JSON.stringify(data) });
+      invalidateLocationsCache();
+      return result;
+    },
   },
   boxes: {
     list: (locationId) =>
       fetch(`/api/boxes${locationId ? `?location=${locationId}` : ''}`, { credentials: 'include' }).then(r => r.json()),
     one: (id) => fetch(`/api/boxes/${id}`, { credentials: 'include' }).then(r => r.json()),
-    create: (data) =>
-      fetch('/api/boxes', {
+    create: async (data) => {
+      const result = await fetch('/api/boxes', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders('POST'),
         body: JSON.stringify(data)
-      }).then(r => r.json()),
+      }).then(r => r.json());
+      if (data.location) invalidateBoxesCache(data.location);
+      return result;
+    },
   },
   deliveries: {
   list: async (filters = {}) => {

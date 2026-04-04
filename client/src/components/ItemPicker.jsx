@@ -73,8 +73,16 @@ export default function ItemPicker({ onAdd }) {
 
       <div className="row responsive-3">
         <div>
-          <label>Item</label>
-          <select className="input" value={itemId} onChange={e=>setItemId(e.target.value)} disabled={items.length===0}>
+          <label htmlFor="item-select">Item</label>
+          <select
+            id="item-select"
+            className="input"
+            value={itemId}
+            onChange={e=>setItemId(e.target.value)}
+            disabled={items.length===0}
+            aria-label="Select item to add"
+            aria-describedby={validationErr ? 'item-error' : undefined}
+          >
             <option value="">— Pick item —</option>
             {items.map(i => (
               <option key={i._id} value={i._id}>
@@ -85,28 +93,36 @@ export default function ItemPicker({ onAdd }) {
         </div>
 
         <div>
-          <label>Packaging</label>
-          <select className="input" value={packaging} onChange={e=>setPackaging(e.target.value)}>
+          <label htmlFor="packaging-select">Packaging</label>
+          <select
+            id="packaging-select"
+            className="input"
+            value={packaging}
+            onChange={e=>setPackaging(e.target.value)}
+            aria-label="Select packaging type"
+          >
             <option value="each">Each</option>
             <option value="case">Case (allows decimals)</option>
           </select>
         </div>
 
         <div>
-          <label>Qty</label>
+          <label htmlFor="qty-input">Qty</label>
           <input
+            id="qty-input"
             className="input"
             type="number"
             step={packaging === 'case' ? '0.01' : '1'}
             min="0"
             value={qty}
             onChange={e=>setQty(e.target.value)}
+            aria-label="Quantity"
           />
         </div>
       </div>
 
       <div>
-        <button className="btn" onClick={add} disabled={items.length===0}>Add</button>
+        <button className="btn" onClick={add} disabled={items.length===0} aria-label="Add item to cart">Add</button>
       </div>
     </div>
   );

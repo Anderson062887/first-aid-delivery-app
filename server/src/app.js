@@ -14,27 +14,36 @@ import reportsRoutes from './routes/reports.js';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
 import { authRequired, requireRoles } from './middleware/auth.js';
+import { setCsrfToken, validateCsrf } from './middleware/csrf.js';
 
 const app = express();
 app.set('etag', false);
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieParser());
 
+// Set CSRF token for all authenticated requests
+app.use(setCsrfToken);
+
 // server/src/app.js
 
 
-// ...
+// Public routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', authRequired, requireRoles('admin'),users);
-app.use('/api/visits', authRequired,visits);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.use('/api/items',authRequired,items);
-app.use('/api/locations',authRequired, locations);
-app.use('/api/boxes',authRequired, boxes);
-app.use('/api/deliveries',authRequired, requireRoles('admin',"rep"), deliveries);
-app.use("/api/exports",authRequired,requireRoles('admin'),exportsRoutes);
+
+// Protected routes with CSRF validation on state-changing requests
+app.use('/api/users', authRequired, validateCsrf, requireRoles('admin'), users);
+app.use('/api/visits', authRequired, validateCsrf, visits);
+app.use('/api/items', authRequired, validateCsrf, items);
+app.use('/api/locations', authRequired, validateCsrf, locations);
+app.use('/api/boxes', authRequired, validateCsrf, boxes);
+app.use('/api/deliveries', authRequired, validateCsrf, requireRoles('admin', 'rep'), deliveries);
+app.use('/api/exports', authRequired, requireRoles('admin'), exportsRoutes);
 app.use('/api/reports', authRequired, reportsRoutes);
 
 export default app;
