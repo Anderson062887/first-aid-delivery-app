@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { flushQueue, startOfflineSyncLoop } from '../offline';
-import { isOnline } from '../offline';
+import { startOfflineSyncLoop } from '../offline';
 
 export default function SyncToast() {
   const [syncState, setSyncState] = useState({ show: false, message: '', type: 'info' });
