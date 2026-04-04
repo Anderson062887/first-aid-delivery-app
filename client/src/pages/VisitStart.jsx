@@ -1,24 +1,38 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
-import { visitApi } from '../api';
+import { api, visitApi } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function VisitStart(){
   const nav = useNavigate();
-  const [reps, setReps] = useState([]);
+  const { user } = useAuth();
   const [locations, setLocations] = useState([]);
-  const [rep, setRep] = useState('');
   const [location, setLocation] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(()=>{
-    fetch('/api/users').then(r=>r.json()).then(setReps);
-    api.locations.list().then(setLocations);
-  },[]);
+  useEffect(() => {
+    api.locations.list()
+      .then(setLocations)
+      .catch(() => setErr('Failed to load locations'));
+  }, []);
 
   async function start(){
-    if(!rep || !location) return alert('Pick rep and location');
-    const v = await visitApi.start(rep, location);
-    nav(`/visits/${v._id}`);
+    setErr('');
+    if (!location) {
+      setErr('Please select a location');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const v = await visitApi.start(location);
+      nav(`/visits/${v._id}`);
+    } catch (e) {
+      setErr(e.message || 'Failed to start visit');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -26,20 +40,27 @@ export default function VisitStart(){
       <h2>Start Visit</h2>
       <div className="card">
         <label>Rep</label>
-        <select className="input" value={rep} onChange={e=>setRep(e.target.value)}>
-          <option value="">Select…</option>
-          {reps.filter(r=>r.active && r.role==='rep').map(r=>(
-            <option key={r._id} value={r._id}>{r.name}</option>
-          ))}
-        </select>
+        <input
+          className="input"
+          value={user?.name || ''}
+          readOnly
+          style={{ backgroundColor: '#f5f5f5' }}
+        />
+        <small style={{ opacity: 0.7, marginBottom: 12 }}>
+          Visit will be assigned to you
+        </small>
 
         <label>Location</label>
-        <select className="input" value={location} onChange={e=>setLocation(e.target.value)}>
-          <option value="">Select…</option>
-          {locations.map(l=> <option key={l._id} value={l._id}>{l.name}</option>)}
+        <select className="input" value={location} onChange={e => setLocation(e.target.value)}>
+          <option value="">Select location…</option>
+          {locations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
         </select>
 
-        <button className="btn primary" onClick={start}>Start</button>
+        {err && <div style={{ color: 'red', marginTop: 8 }}>{err}</div>}
+
+        <button className="btn primary" onClick={start} disabled={loading} style={{ marginTop: 12 }}>
+          {loading ? 'Starting…' : 'Start Visit'}
+        </button>
       </div>
     </div>
   );

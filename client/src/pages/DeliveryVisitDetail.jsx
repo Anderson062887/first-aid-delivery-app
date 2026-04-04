@@ -122,6 +122,7 @@ export default function DeliveryVisitDetail() {
   const [visitDoc, setVisitDoc] = useState(null);
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
+  const [exportErr, setExportErr] = useState('');
 
   // Load the visit
   // useEffect(() => {
@@ -208,8 +209,9 @@ export default function DeliveryVisitDetail() {
 
   // Export button handler
   function exportVisitCsv() {
-    if (!visitDoc) { alert('Visit not loaded'); return; }
-    if (!rows || rows.length === 0) { alert('No deliveries for this visit'); return; }
+    setExportErr('');
+    if (!visitDoc) { setExportErr('Visit not loaded yet'); return; }
+    if (!rows || rows.length === 0) { setExportErr('No deliveries for this visit to export'); return; }
     const csv = buildVisitLinesCsv(visitDoc, rows);
     const loc = visitDoc.location?.name ? visitDoc.location.name.replace(/\s+/g, '-') : 'location';
     const when = visitDoc.submittedAt || visitDoc.startedAt || visitDoc.createdAt;
@@ -243,9 +245,10 @@ export default function DeliveryVisitDetail() {
             <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
             <Link className="btn" to={`/visits/${visitId}/print`}>Print Summary</Link>
             {/* <Link className="btn" to={`/visits/${visitId}/edit`}>Edit visit</Link> */}
-           
+
           </div>
        </div>
+       {exportErr && <div style={{ color: 'red', marginBottom: 12, padding: '8px 12px', background: '#fee', borderRadius: 6 }}>{exportErr}</div>}
 
       <div className="card" style={{ display:'grid', gap:6 }}>
         <h2 style={{ margin:0 }}>Visit Details</h2>

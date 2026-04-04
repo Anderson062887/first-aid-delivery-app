@@ -118,6 +118,13 @@ export default function Visit(){
   // All boxes covered only if each location box appears in deliveredIds
   const allCovered = boxes.length > 0 && boxes.every(b => deliveredIds.has(String(getBoxId(b))));
 
+  // Auto-select "completed" outcome when all boxes are filled
+  useEffect(() => {
+    if (allCovered && !outcome && !readonly) {
+      setOutcome('completed');
+    }
+  }, [allCovered, outcome, readonly]);
+
   async function submitVisit(){
     // Guard: completed requires all boxes refilled
     if (outcome === 'completed' && !allCovered) {

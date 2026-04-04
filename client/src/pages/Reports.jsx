@@ -14,6 +14,7 @@ export default function Reports(){
   const [repName, setRepName] = useState('');
   const [locations, setLocations] = useState([]);
   const [reps, setReps] = useState([]);
+  const [err, setErr] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -39,10 +40,11 @@ export default function Reports(){
   }
 
   async function download(url, namePrefix){
+    setErr('');
     const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) {
       const t = await res.text().catch(()=> '');
-      alert(`Export failed (${res.status}): ${t.slice(0,160)}`);
+      setErr(`Export failed (${res.status}): ${t.slice(0,160)}`);
       return;
     }
     const blob = await res.blob();
@@ -69,6 +71,8 @@ export default function Reports(){
   return (
     <div className="page">
       <h2>Reports / CSV Export</h2>
+
+      {err && <div style={{ color: 'red', marginBottom: 12, padding: '8px 12px', background: '#fee', borderRadius: 6 }}>{err}</div>}
 
       <div className="card" style={{ display:'grid', gap:12 }}>
         <div className="row responsive-3">
@@ -153,7 +157,7 @@ export default function Reports(){
           <button
             className="btn"
             onClick={() => {
-              if (!location) { alert('Pick a Location to export its history.'); return; }
+              if (!location) { setErr('Pick a Location to export its history.'); return; }
               download(qs('/api/exports/location-history.csv', commonParams()), 'location_history');
             }}
           >

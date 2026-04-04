@@ -6,6 +6,7 @@ export default function ItemPicker({ onAdd }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [validationErr, setValidationErr] = useState('');
   const [itemId, setItemId] = useState('');
   const [packaging, setPackaging] = useState('each');
   const [qty, setQty] = useState(1);
@@ -30,14 +31,15 @@ export default function ItemPicker({ onAdd }) {
   const selected = useMemo(() => items.find(i => i._id === itemId), [items, itemId]);
 
   function add() {
-    if (!itemId) { alert('Pick an item'); return; }
+    setValidationErr('');
+    if (!itemId) { setValidationErr('Please pick an item'); return; }
     const q = Number(qty);
-    if (!Number.isFinite(q) || q <= 0) { alert('Enter a valid quantity'); return; }
+    if (!Number.isFinite(q) || q <= 0) { setValidationErr('Enter a valid quantity'); return; }
 
     // Validate per-packaging
     const p = packaging || selected?.packaging || 'each';
     if (p === 'each' && !Number.isInteger(q)) {
-      alert('Quantity for EACH must be a whole number.');
+      setValidationErr('Quantity for EACH must be a whole number');
       return;
     }
 
@@ -45,7 +47,7 @@ export default function ItemPicker({ onAdd }) {
       item: itemId,
       packaging: p,
       quantity: q,
-      // price is computed server-side; we don’t need it here
+      // price is computed server-side; we don't need it here
     });
 
     // reset
@@ -67,6 +69,7 @@ export default function ItemPicker({ onAdd }) {
         </div>
       )}
       {err && <div style={{ color:'red' }}>{err}</div>}
+      {validationErr && <div style={{ color:'red', marginBottom: 8 }}>{validationErr}</div>}
 
       <div className="row responsive-3">
         <div>
