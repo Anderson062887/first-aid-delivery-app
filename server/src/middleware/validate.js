@@ -25,7 +25,6 @@ export function validate(schema) {
 
       for (const [field, rules] of Object.entries(fields)) {
         const value = data?.[field];
-        const fieldPath = `${source}.${field}`;
 
         // Required check
         if (rules.required && (value === undefined || value === null || value === '')) {

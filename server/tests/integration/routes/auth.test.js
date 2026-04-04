@@ -142,7 +142,9 @@ describe('Auth API', () => {
         .expect(200);
 
       expect(res.body.ok).toBe(true);
-      expect(res.headers['set-cookie'][0]).toContain('token=;');
+      const cookies = res.headers['set-cookie'];
+      const tokenCookie = cookies.find(c => c.startsWith('token='));
+      expect(tokenCookie).toContain('token=;');
     });
   });
 
