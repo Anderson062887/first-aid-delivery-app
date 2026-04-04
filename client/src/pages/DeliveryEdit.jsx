@@ -3,6 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 
 const money = (n) => Number(n || 0).toFixed(2);
 
+// Get CSRF token from cookie
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 // Decide unit price from the selected item + packaging
 function calcUnitPrice(itemDoc, packaging) {
   if (!itemDoc) return 0;
@@ -36,7 +42,7 @@ export default function DeliveryEdit() {
       setMsg('');
       try {
         // Load delivery (detail endpoint)
-        const dRes = await fetch(`/api/deliveries/${id}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const dRes = await fetch(`/api/deliveries/${id}`, { credentials: 'include', headers: { 'Cache-Control': 'no-cache' } });
         if (!dRes.ok) throw new Error(`Failed to load delivery (${dRes.status})`);
         const d = await dRes.json();
         if (cancelled) return;
@@ -115,7 +121,11 @@ export default function DeliveryEdit() {
 
       const r = await fetch(`/api/deliveries/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': getCsrfToken()
+        },
         body: JSON.stringify(payload),
       });
 
