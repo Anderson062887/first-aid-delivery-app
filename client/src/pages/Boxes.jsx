@@ -69,9 +69,9 @@ export default function Boxes(){
             <tbody>
               {boxes.map(b => (
                 <tr key={b._id}>
-                  <td>{b.label}</td>
-                  <td>{b.size}</td>
-                  <td>{b.location?.name || '—'}</td>
+                  <td data-label="Label">{b.label}</td>
+                  <td data-label="Size">{b.size}</td>
+                  <td data-label="Location">{b.location?.name || '—'}</td>
                 </tr>
               ))}
             </tbody>

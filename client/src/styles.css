@@ -298,6 +298,43 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   border-radius: 6px;
 }
 
+/* Mobile card layout for items table */
+@media (max-width: 700px) {
+  .items-table thead { display: none; }
+  .items-table,
+  .items-table tbody,
+  .items-table tr,
+  .items-table td { display: block; width: 100%; }
+  .items-table tr {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .items-table td {
+    border: 0;
+    padding: 8px 0;
+    display: flex;
+    justify-content: space-between;
+    border-radius: 0;
+  }
+  .items-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    opacity: 0.7;
+  }
+  .items-table td:first-child {
+    font-weight: 600;
+    font-size: 1.05em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+  }
+  .items-table td:first-child::before { display: none; }
+}
+
 /* nav bar styles */
 
 /* Responsive header + nav */

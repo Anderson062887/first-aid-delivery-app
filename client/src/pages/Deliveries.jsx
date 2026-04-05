@@ -282,16 +282,16 @@ export default function Deliveries() {
             <tbody>
               {grouped.map((g) => (
                 <tr key={g.visitId}>
-                  <td>{g.when.toLocaleString()}</td>
-                  <td>{g.repName}</td>
-                  <td>{g.locationName}</td>
-                  <td>{g.boxCount}</td>
-                  <td>
+                  <td data-label="Date">{g.when.toLocaleString()}</td>
+                  <td data-label="Rep">{g.repName}</td>
+                  <td data-label="Location">{g.locationName}</td>
+                  <td data-label="Boxes">{g.boxCount}</td>
+                  <td data-label="Details">
                     {g.visitId !== 'no-visit'
                       ? <Link to={`/deliveries/visit/${g.visitId}`}>View details</Link>
                       : <span style={{ opacity: 0.6 }}>—</span>}
                   </td>
-                  <td>
+                  <td data-label="Outcome">
                     {g.outcome ? (
                       <div>
                         <Badge kind={outcomeKind(g.outcome)}>
@@ -307,7 +307,7 @@ export default function Deliveries() {
                       <span style={{ opacity: 0.6 }}>—</span>
                     )}
                   </td>
-                  <td>${g.total.toFixed(2)}</td>
+                  <td data-label="Total">${g.total.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

@@ -58,19 +58,19 @@ async function toggleRole(u, role){
           <tbody>
             {rows.map(u => (
               <tr key={u._id}>
-                <td>{u.name}</td>
-                <td>{u.email || '—'}</td>
-                <td>
+                <td data-label="Name">{u.name}</td>
+                <td data-label="Email">{u.email || '—'}</td>
+                <td data-label="Active">
                   <input type="checkbox" checked={!!u.active} onChange={()=>toggleActive(u)} />
                 </td>
-                <td>
+                <td data-label="Rep">
                   <input
                     type="checkbox"
                     checked={(u.roles||[]).includes('rep')}
                     onChange={()=>toggleRole(u,'rep')}
                   />
                 </td>
-                <td>
+                <td data-label="Admin">
                   <input
                     type="checkbox"
                     checked={(u.roles||[]).includes('admin')}
