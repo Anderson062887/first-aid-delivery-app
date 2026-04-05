@@ -144,6 +144,15 @@ export const api = {
       invalidateItemsCache();
       return result;
     },
+    get: (id) => http(`/items/${id}`),
+    update: async (id, data) => {
+      const result = await http(`/items/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
+      invalidateItemsCache();
+      return result;
+    },
   },
   create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),  
   locations: {

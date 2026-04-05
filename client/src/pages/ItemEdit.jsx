@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { createItem } from '../api';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { api } from '../api';
+import Skeleton from '../components/Skeleton.jsx';
 
-export default function ItemNew() {
+export default function ItemEdit() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: '',
@@ -12,8 +14,34 @@ export default function ItemNew() {
     pricePerPack: 0,
     active: true
   });
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true);
+        const item = await api.items.get(id);
+        if (cancelled) return;
+        setForm({
+          name: item.name || '',
+          sku: item.sku || '',
+          packaging: item.packaging || 'each',
+          unitsPerPack: item.unitsPerPack ?? 1,
+          pricePerPack: item.pricePerPack ?? 0,
+          active: item.active !== false
+        });
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load item');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [id]);
 
   function update(e) {
     const { name, value, type, checked } = e.target;
@@ -25,7 +53,7 @@ export default function ItemNew() {
     setSaving(true);
     setError('');
     try {
-      await createItem({
+      await api.items.update(id, {
         ...form,
         unitsPerPack: Number(form.unitsPerPack),
         pricePerPack: Number(form.pricePerPack)
@@ -38,9 +66,20 @@ export default function ItemNew() {
     }
   }
 
+  if (loading) {
+    return (
+      <div>
+        <h2>Edit Item</h2>
+        <div style={{ maxWidth: 500, margin: '0 auto' }}>
+          <Skeleton.Form fields={6} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h2>New Item</h2>
+      <h2>Edit Item</h2>
       <div style={{ marginBottom: 12 }}>
         <Link className="btn" to="/items">&larr; Back to Items</Link>
       </div>
@@ -83,7 +122,7 @@ export default function ItemNew() {
         </div>
 
         <button className="btn primary" disabled={saving} type="submit">
-          {saving ? 'Creating...' : 'Create Item'}
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </form>
     </div>

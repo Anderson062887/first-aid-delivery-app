@@ -60,11 +60,13 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
     const it = await Item.findById(req.params.id);
     if (!it) return res.sendStatus(404);
 
-    const { name, packaging, unitsPerPack, pricePerPack } = req.body || {};
+    const { name, sku, packaging, unitsPerPack, pricePerPack, active } = req.body || {};
     if (name !== undefined) it.name = name;
+    if (sku !== undefined) it.sku = sku;
     if (packaging !== undefined) it.packaging = packaging;
     if (unitsPerPack !== undefined) it.unitsPerPack = unitsPerPack;
     if (pricePerPack !== undefined) it.pricePerPack = pricePerPack;
+    if (active !== undefined) it.active = active;
 
     await it.save();
     res.json(it);

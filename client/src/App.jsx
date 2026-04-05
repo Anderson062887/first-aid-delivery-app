@@ -7,6 +7,7 @@ import Deliveries from './pages/Deliveries.jsx'
 import NewDelivery from './pages/NewDelivery.jsx'
 import Items from './pages/Items.jsx'
 import ItemNew from './pages/ItemNew.jsx'
+import ItemEdit from './pages/ItemEdit.jsx'
 import Users from './pages/Users.jsx'
 import UserNew from './pages/UserNew.jsx'
 import LocationNew from './pages/LocationNew.jsx'
@@ -73,6 +74,7 @@ export default function App(){
                   <Route element={<ProtectedRoute roles={['admin']} />}>
                       <Route path="/items" element={<Items/>} />
                       <Route path="/items/new" element={<ItemNew/>} />
+                      <Route path="/items/:id/edit" element={<ItemEdit/>} />
                       <Route path="/users" element={<Users/>} />
                       <Route path="/users/new" element={<UserNew/>} />
                        <Route path="/locations/new" element={<LocationNew/>} />

@@ -46,13 +46,13 @@ export default function Items() {
         )}
       </div>
 
-      {loading && <Skeleton.Table rows={6} cols={6} />}
+      {loading && <Skeleton.Table rows={6} cols={7} />}
 
       {!loading && (
       <table className="items-table">
         <thead>
           <tr>
-            <th>Name</th><th>SKU</th><th>Packaging</th><th>Units/Pack</th><th>Price/Pack</th><th>Active</th>
+            <th>Name</th><th>SKU</th><th>Packaging</th><th>Units/Pack</th><th>Price/Pack</th><th>Active</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -64,11 +64,12 @@ export default function Items() {
               <td data-label="Units/Pack">{i.unitsPerPack}</td>
               <td data-label="Price/Pack">${Number(i.pricePerPack).toFixed(2)}</td>
               <td data-label="Active">{i.active ? 'Yes' : 'No'}</td>
+              <td><Link to={`/items/${i._id}/edit`} className="btn btn-sm">Edit</Link></td>
             </tr>
           ))}
           {filteredItems.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ textAlign: 'center', padding: 20, opacity: 0.7 }}>
+              <td colSpan={7} style={{ textAlign: 'center', padding: 20, opacity: 0.7 }}>
                 {search ? 'No items match your search' : 'No items found'}
               </td>
             </tr>
