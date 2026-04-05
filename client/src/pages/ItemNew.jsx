@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { createItem } from '../api';
+import { useToast } from '../components/Toast.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 export default function ItemNew() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: '',
     sku: '',
@@ -30,9 +33,11 @@ export default function ItemNew() {
         unitsPerPack: Number(form.unitsPerPack),
         pricePerPack: Number(form.pricePerPack)
       });
+      toast.success('Item created successfully');
       navigate('/items');
     } catch (err) {
       setError(err.message);
+      toast.error('Failed to create item');
     } finally {
       setSaving(false);
     }
@@ -40,10 +45,11 @@ export default function ItemNew() {
 
   return (
     <div>
+      <Breadcrumbs items={[
+        { label: 'Items', to: '/items' },
+        { label: 'New Item' }
+      ]} />
       <h2>New Item</h2>
-      <div style={{ marginBottom: 12 }}>
-        <Link className="btn" to="/items">&larr; Back to Items</Link>
-      </div>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
       <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 500, margin: '0 auto' }}>
         <div>

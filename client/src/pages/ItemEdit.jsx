@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { useToast } from '../components/Toast.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import Skeleton from '../components/Skeleton.jsx';
 
 export default function ItemEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: '',
     sku: '',
@@ -14,6 +17,7 @@ export default function ItemEdit() {
     pricePerPack: 0,
     active: true
   });
+  const [originalName, setOriginalName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -33,15 +37,19 @@ export default function ItemEdit() {
           pricePerPack: item.pricePerPack ?? 0,
           active: item.active !== false
         });
+        setOriginalName(item.name || 'Item');
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Failed to load item');
+        if (!cancelled) {
+          setError(err.message || 'Failed to load item');
+          toast.error('Failed to load item');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, toast]);
 
   function update(e) {
     const { name, value, type, checked } = e.target;
@@ -58,9 +66,11 @@ export default function ItemEdit() {
         unitsPerPack: Number(form.unitsPerPack),
         pricePerPack: Number(form.pricePerPack)
       });
+      toast.success('Item updated successfully');
       navigate('/items');
     } catch (err) {
       setError(err.message);
+      toast.error('Failed to update item');
     } finally {
       setSaving(false);
     }
@@ -69,6 +79,10 @@ export default function ItemEdit() {
   if (loading) {
     return (
       <div>
+        <Breadcrumbs items={[
+          { label: 'Items', to: '/items' },
+          { label: 'Edit' }
+        ]} />
         <h2>Edit Item</h2>
         <div style={{ maxWidth: 500, margin: '0 auto' }}>
           <Skeleton.Form fields={6} />
@@ -79,10 +93,11 @@ export default function ItemEdit() {
 
   return (
     <div>
+      <Breadcrumbs items={[
+        { label: 'Items', to: '/items' },
+        { label: `Edit: ${originalName}` }
+      ]} />
       <h2>Edit Item</h2>
-      <div style={{ marginBottom: 12 }}>
-        <Link className="btn" to="/items">&larr; Back to Items</Link>
-      </div>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
       <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 500, margin: '0 auto' }}>
         <div>

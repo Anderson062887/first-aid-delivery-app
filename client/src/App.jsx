@@ -24,6 +24,7 @@ import Login from './pages/Login.jsx';
 import Reports from './pages/Reports.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import SyncToast from './components/SyncToast.jsx';
+import { ToastProvider } from './components/Toast.jsx';
 import { useEffect } from 'react';
 import { api } from '../src/api.js'
 import { cacheItems, cacheLocations } from '../src/cache.js';
@@ -52,7 +53,7 @@ export default function App(){
 }, [])
 
   return (
-    <>
+    <ToastProvider>
       <NavBar />
       <OnlineSyncGate />
       <SyncToast />
@@ -89,7 +90,7 @@ export default function App(){
         </Routes>
         </ErrorBoundary>
       </div>
-    </>
+    </ToastProvider>
   )
 }
 

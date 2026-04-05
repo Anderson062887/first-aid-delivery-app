@@ -5,6 +5,8 @@ import ItemPicker from '../components/ItemPicker.jsx'
 import Cart from '../components/Cart.jsx'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getVisit, getBoxes, getLocations } from '../cache.js'
+import { useToast } from '../components/Toast.jsx'
+import Breadcrumbs from '../components/Breadcrumbs.jsx'
 
 const DRAFT_KEY = 'delivery_draft';
 
@@ -35,6 +37,7 @@ export default function NewDelivery(){
   const visitId = q.get('visit') || '';
   const rawBox = q.get('box');
   const boxFixed = rawBox && rawBox !== 'undefined' && rawBox !== 'null' ? rawBox : '';
+  const toast = useToast();
 
   // Check for saved draft on mount
   const draft = loadDraft();
@@ -220,11 +223,13 @@ export default function NewDelivery(){
     try {
       await api.deliveries.create(payload);
       clearDraft(); // Clear draft on successful submission
+      toast.success('Delivery recorded successfully');
       if (visitId) nav(`/visits/${visitId}?done=delivery`);
       else nav(`/?done=delivery`);
     } catch {
       // Treat as queued/temporary failure
       setErr('No connection. Saved locally and will sync when back online.');
+      toast.info('Saved offline - will sync when back online');
       clearDraft();
       setTimeout(() => {
         if (visitId) nav(`/visits/${visitId}?queued=1`);
@@ -237,6 +242,10 @@ export default function NewDelivery(){
 
   return (
     <div>
+      <Breadcrumbs items={[
+        { label: 'Deliveries', to: '/deliveries' },
+        { label: 'New Delivery' }
+      ]} />
       <h2>New Delivery {visitId && <small>(Visit)</small>}</h2>
 
       {showDraftBanner && (

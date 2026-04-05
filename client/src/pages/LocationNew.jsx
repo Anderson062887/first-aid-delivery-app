@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { locationsApi } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/Toast.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const SIZES = ['S','M','L','XL'];
 
 export default function LocationNew(){
   const nav = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState({
     name:'',
     address:{ street:'', city:'', state:'', zip:'' },
@@ -64,13 +67,21 @@ export default function LocationNew(){
         boxSizes,
         boxLabelPrefix: form.boxLabelPrefix
       });
+      toast.success('Location created successfully');
       nav('/locations');
-    } catch(e){ setErr(String(e.message||e)); }
+    } catch(e){
+      setErr(String(e.message||e));
+      toast.error('Failed to create location');
+    }
     finally{ setSaving(false); }
   }
 
   return (
     <div>
+      <Breadcrumbs items={[
+        { label: 'Locations', to: '/locations' },
+        { label: 'New Location' }
+      ]} />
       <h2>New Location</h2>
       {err && <div style={{color:'red', marginBottom:12}}>{err}</div>}
       <form className='card' onSubmit={submit} style={{display:'grid', gap:12, maxWidth:600, margin:"0 auto"}}>
@@ -102,7 +113,7 @@ export default function LocationNew(){
           </div>
         </div>
 
-        <button className="btn primary" disabled={saving}>{saving?'Saving…':'Create Location'}</button>
+        <button className="btn primary" disabled={saving}>{saving?'Saving...':'Create Location'}</button>
       </form>
     </div>
   );
