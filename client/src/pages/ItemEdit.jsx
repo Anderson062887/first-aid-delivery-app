@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
-import { useToast } from '../components/Toast.jsx';
+import { useToast } from '../components/ToastContext.jsx';
 import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import Skeleton from '../components/Skeleton.jsx';
 

@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react';
-import { usersApi } from '../api'; // <-- make sure this named export exists in api.js
+import { useEffect, useState, useRef } from 'react';
+import { usersApi } from '../api';
 
 export default function RepBar({ onChange }) {
   const [reps, setReps] = useState([]);
   const [repId, setRepId] = useState(localStorage.getItem('selectedRepId') || '');
   const [err, setErr] = useState('');
+  const onChangeRef = useRef(onChange);
+  const initialRepId = useRef(repId);
+
+  // Keep ref updated
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     usersApi.list()
@@ -21,11 +28,11 @@ export default function RepBar({ onChange }) {
         setReps(list);
 
         // If nothing selected yet but we have reps, pick the first one
-        if (!repId && list.length > 0) {
+        if (!initialRepId.current && list.length > 0) {
           const first = String(list[0]._id);
           setRepId(first);
           localStorage.setItem('selectedRepId', first);
-          onChange?.(first);
+          onChangeRef.current?.(first);
         }
       })
       .catch(e => setErr(String(e?.message || e)));
@@ -54,4 +61,3 @@ export default function RepBar({ onChange }) {
     </div>
   );
 }
-

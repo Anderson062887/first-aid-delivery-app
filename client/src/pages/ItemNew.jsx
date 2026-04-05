@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createItem } from '../api';
-import { useToast } from '../components/Toast.jsx';
+import { useToast } from '../components/ToastContext.jsx';
 import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 export default function ItemNew() {

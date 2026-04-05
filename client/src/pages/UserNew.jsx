@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { usersApi } from '../api';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '../components/Toast.jsx';
+import { useToast } from '../components/ToastContext.jsx';
 import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 // Password validation rules
