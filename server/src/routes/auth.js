@@ -6,6 +6,23 @@ import { loginLimiter, registerLimiter } from '../middleware/rateLimit.js';
 
 const r = Router();
 
+// Password validation: min 8 chars, at least one uppercase, one lowercase, one number
+function validatePassword(password) {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number';
+  }
+  return null; // valid
+}
+
 // helper to sign cookie
 function setAuthCookie(res, user) {
   const payload = { _id: user._id, name: user.name, email: user.email, roles: user.roles || [] };
@@ -62,6 +79,10 @@ r.post('/register', registerLimiter, async (req, res) => {
   try {
     const { name, email, password, roles = ['rep'] } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
+
+    // Validate password strength
+    const passwordError = validatePassword(password);
+    if (passwordError) return res.status(400).json({ error: passwordError });
 
     const exists = await User.findOne({ email: email.toLowerCase().trim() });
     if (exists) return res.status(400).json({ error: 'Email already in use' });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useLocation, Link } from 'react-router-dom';
+import Skeleton from '../components/Skeleton.jsx';
 
 function useQuery(){ return new URLSearchParams(useLocation().search); }
 
@@ -50,7 +51,7 @@ export default function Boxes(){
       </div>
 
       {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
-      {loading && <div className="card">Loading…</div>}
+      {loading && <Skeleton.Table rows={4} cols={3} />}
 
       {!loading && boxes.length === 0 && (
         <div className="card">No boxes found for this location.</div>

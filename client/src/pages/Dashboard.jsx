@@ -3,6 +3,7 @@ import { api, reportsApi } from '../api'
 import { useLocation } from 'react-router-dom'
 import Flash from '../components/Flash.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 
 
 import {
@@ -134,7 +135,12 @@ export default function Dashboard(){
       </div>
 
       {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
-      {loading && <div className="card">Loading…</div>}
+      {loading && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <Skeleton.Card lines={2} />
+          <Skeleton.Card lines={4} />
+        </div>
+      )}
 
       {!loading && (
         <>

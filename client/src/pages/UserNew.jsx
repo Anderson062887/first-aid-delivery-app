@@ -1,28 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { usersApi } from '../api';
 import { useNavigate } from 'react-router-dom';
+
+// Password validation rules
+function validatePassword(password) {
+  const rules = [
+    { test: p => p.length >= 8, label: 'At least 8 characters' },
+    { test: p => /[a-z]/.test(p), label: 'One lowercase letter' },
+    { test: p => /[A-Z]/.test(p), label: 'One uppercase letter' },
+    { test: p => /[0-9]/.test(p), label: 'One number' },
+  ];
+  return rules.map(r => ({ ...r, passed: r.test(password || '') }));
+}
 
 export default function UserNew(){
   const nav = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-   const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('');
   const [rep, setRep] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [err, setErr] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const passwordRules = useMemo(() => validatePassword(password), [password]);
+  const passwordValid = passwordRules.every(r => r.passed);
 
   async function submit(){
+    if (!name.trim()) { setErr('Name is required'); return; }
+    if (!email.trim()) { setErr('Email is required'); return; }
+    if (!passwordValid) { setErr('Please fix password requirements'); return; }
+
     try{
+      setSubmitting(true);
+      setErr('');
       const roles = [];
       if (rep) roles.push('rep');
       if (admin) roles.push('admin');
-      await usersApi.create({ name, email,password,roles, active: true });
+      if (roles.length === 0) { setErr('Select at least one role'); setSubmitting(false); return; }
+      await usersApi.create({ name, email, password, roles, active: true });
       nav('/users');
-    }catch(e){ setErr(String(e.message||e)); }
+    }catch(e){
+      setErr(String(e.message||e));
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="card" style={{ display:'grid', gap:12,width:"50%", margin:"0 auto"}}>
+    <div className="card" style={{ display:'grid', gap:12, width:"50%", margin:"0 auto"}}>
       <h2>New User</h2>
       {err && <div style={{color:'red'}}>{err}</div>}
       <div>
@@ -31,21 +56,53 @@ export default function UserNew(){
       </div>
       <div>
         <label>Email</label>
-        <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />
+        <input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} />
       </div>
 
       <div>
-       <label>Password</label>
-        <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+        <label>Password</label>
+        <input
+          className="input"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+        {password && (
+          <div style={{ marginTop: 8, fontSize: 13 }}>
+            {passwordRules.map((rule, i) => (
+              <div key={i} style={{
+                color: rule.passed ? '#28a745' : '#dc3545',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 2
+              }}>
+                <span>{rule.passed ? '✓' : '✗'}</span>
+                <span>{rule.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <h2>Role</h2>
-      <div  style={{ gap:16 }}>
-        <label><input type="checkbox" checked={rep} onChange={e=>setRep(e.target.checked)} /> Rep</label>
-        <label><input type="checkbox" checked={admin} onChange={e=>setAdmin(e.target.checked)} /> Admin</label>
+
+      <h3 style={{ marginBottom: 0 }}>Roles</h3>
+      <div style={{ display: 'flex', gap: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input type="checkbox" checked={rep} onChange={e=>setRep(e.target.checked)} /> Rep
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input type="checkbox" checked={admin} onChange={e=>setAdmin(e.target.checked)} /> Admin
+        </label>
       </div>
-      <button style={{width:"80%", margin:"20px auto"}}className="btn primary" onClick={submit}>Create</button>
+
+      <button
+        style={{width:"80%", margin:"20px auto"}}
+        className="btn primary"
+        onClick={submit}
+        disabled={submitting}
+      >
+        {submitting ? 'Creating...' : 'Create'}
+      </button>
     </div>
   );
 }
-
-

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, usersApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 
 function outcomeKind(o){
   if (o === 'completed') return 'completed';
@@ -259,7 +260,7 @@ export default function Deliveries() {
       </div>
 
       {err && <div style={{ color: 'red', margin: '12px 0' }}>{err}</div>}
-      {loading && <div className="card">Loading…</div>}
+      {loading && <Skeleton.Table rows={5} cols={7} />}
 
       {!loading && grouped.length === 0 && (
         <div className="card">No deliveries found for the selected filters.</div>

@@ -155,7 +155,7 @@ describe('Auth API', () => {
         .send({
           name: 'New User',
           email: 'newuser@example.com',
-          password: 'password123',
+          password: 'Password123',
           roles: ['rep']
         })
         .expect(201);
@@ -179,7 +179,7 @@ describe('Auth API', () => {
         .send({
           name: 'Duplicate',
           email: 'existing@example.com',
-          password: 'password'
+          password: 'Password123'
         })
         .expect(400);
 

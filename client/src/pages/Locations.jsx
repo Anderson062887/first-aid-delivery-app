@@ -4,6 +4,7 @@ import { visitApi } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import RepBar from '../components/RepBar.jsx';
 import Badge from '../components/Badge.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 
 export default function Locations(){
   // const [repId, setRepId] = useState(localStorage.getItem('selectedRepId') || '');
@@ -107,7 +108,7 @@ export default function Locations(){
       </div>
 
       {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
-      {loading && <div className="card">Loading…</div>}
+      {loading && <Skeleton.List items={4} />}
 
       {!loading && locations.length === 0 && (
         <div className="card">No locations found.</div>

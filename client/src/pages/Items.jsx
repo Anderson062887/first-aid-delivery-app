@@ -1,13 +1,19 @@
 import { useEffect, useState, useMemo } from 'react';
 import { listItems } from '../api';
 import { Link } from 'react-router-dom';
+import Skeleton from '../components/Skeleton.jsx';
 
 export default function Items() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listItems().then(setItems).catch(console.error);
+    setLoading(true);
+    listItems()
+      .then(setItems)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -39,6 +45,10 @@ export default function Items() {
           </span>
         )}
       </div>
+
+      {loading && <Skeleton.Table rows={6} cols={6} />}
+
+      {!loading && (
       <table className="items-table">
         <thead>
           <tr>
@@ -65,6 +75,7 @@ export default function Items() {
           )}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

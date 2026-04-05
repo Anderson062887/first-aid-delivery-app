@@ -185,6 +185,9 @@ export default function NewDelivery(){
 
   // Clear draft and restore defaults
   function discardDraft() {
+    if (!window.confirm('Discard this draft? All unsaved items will be lost.')) {
+      return;
+    }
     clearDraft();
     setRepName('');
     setLocationId('');
