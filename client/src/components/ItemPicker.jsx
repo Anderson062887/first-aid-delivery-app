@@ -10,6 +10,7 @@ export default function ItemPicker({ onAdd }) {
   const [itemId, setItemId] = useState('');
   const [packaging, setPackaging] = useState('each');
   const [qty, setQty] = useState(1);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +30,15 @@ export default function ItemPicker({ onAdd }) {
   }, []);
 
   const selected = useMemo(() => items.find(i => i._id === itemId), [items, itemId]);
+
+  const filteredItems = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(i =>
+      i.name?.toLowerCase().includes(q) ||
+      i.sku?.toLowerCase().includes(q)
+    );
+  }, [items, search]);
 
   function add() {
     setValidationErr('');
@@ -71,6 +81,23 @@ export default function ItemPicker({ onAdd }) {
       {err && <div style={{ color:'red' }}>{err}</div>}
       {validationErr && <div style={{ color:'red', marginBottom: 8 }}>{validationErr}</div>}
 
+      <div style={{ marginBottom: 8 }}>
+        <input
+          type="search"
+          className="input"
+          placeholder="Search items by name or SKU..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          aria-label="Search items"
+          style={{ maxWidth: 300 }}
+        />
+        {search && (
+          <span style={{ fontSize: 13, opacity: 0.7, marginLeft: 8 }}>
+            {filteredItems.length} of {items.length}
+          </span>
+        )}
+      </div>
+
       <div className="row responsive-3">
         <div>
           <label htmlFor="item-select">Item</label>
@@ -84,7 +111,7 @@ export default function ItemPicker({ onAdd }) {
             aria-describedby={validationErr ? 'item-error' : undefined}
           >
             <option value="">— Pick item —</option>
-            {items.map(i => (
+            {filteredItems.map(i => (
               <option key={i._id} value={i._id}>
                 {i.name} {Number.isFinite(i.pricePerPack) ? `($${Number(i.pricePerPack).toFixed(2)}/${i.packaging || 'each'})` : ''}
               </option>
