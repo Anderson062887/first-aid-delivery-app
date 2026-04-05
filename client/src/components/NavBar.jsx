@@ -66,7 +66,7 @@ export default function NavBar() {
             <button className="btn logout" onClick={logout}>Logout</button>
           </>
         ) : (
-          <NavLink to="/login" className="btn">Login</NavLink>
+          loc.pathname !== '/login' && <NavLink to="/login" className="btn">Login</NavLink>
         )}
 
         {user && (
