@@ -24,7 +24,18 @@ export default function Cart({ lines = [], items = [], onRemove }) {
   const rows = (lines || []).map((l, idx) => {
     const it = itemsById.get(l.item) || {};
     const packaging = l.packaging || it.packaging || 'each';
-    const unitPrice = safeNum(l.unitPrice, safeNum(it.pricePerPack, 0));
+
+    // Calculate unit price based on packaging type
+    let unitPrice;
+    if (l.unitPrice !== undefined) {
+      unitPrice = safeNum(l.unitPrice, 0);
+    } else {
+      const packPrice = safeNum(it.pricePerPack, 0);
+      const unitsPerPack = safeNum(it.unitsPerPack, 1) || 1;
+      // "each" = price per individual unit, "case" = full pack price
+      unitPrice = packaging === 'each' ? packPrice / unitsPerPack : packPrice;
+    }
+
     const qty       = safeNum(l.quantity, 0);
     const lineTotal = safeNum(l.lineTotal, unitPrice * qty);
 
