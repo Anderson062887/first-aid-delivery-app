@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { usersApi } from '../api';
 import Flash from '../components/Flash.jsx';
 import { Link } from 'react-router-dom';
+import { useToast } from '../components/ToastContext.jsx';
 
 
 export default function Users(){
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const toast = useToast();
 
   async function load(){
     try { setRows(await usersApi.list()); setErr(''); }
@@ -39,6 +42,22 @@ async function toggleRole(u, role){
     }catch(e){ setErr(String(e.message||e)); }
   }
 
+  async function handleDelete(user) {
+    if (!window.confirm(`Delete user "${user.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    setDeleting(user._id);
+    try {
+      await usersApi.delete(user._id);
+      setRows(prev => prev.filter(u => u._id !== user._id));
+      toast.success(`User "${user.name}" deleted`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete user');
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <div>
       <h2>Users</h2>
@@ -52,7 +71,7 @@ async function toggleRole(u, role){
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th><th>Email</th><th>Active</th><th>Rep</th><th>Admin</th>
+              <th>Name</th><th>Email</th><th>Active</th><th>Rep</th><th>Admin</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -77,6 +96,16 @@ async function toggleRole(u, role){
                     onChange={()=>toggleRole(u,'admin')}
                   />
                 </td>
+                <td>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: '#c62828', color: '#fff', borderColor: '#c62828' }}
+                    onClick={() => handleDelete(u)}
+                    disabled={deleting === u._id}
+                  >
+                    {deleting === u._id ? '...' : 'Delete'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -85,5 +114,3 @@ async function toggleRole(u, role){
     </div>
   );
 }
-
-

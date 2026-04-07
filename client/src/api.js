@@ -153,6 +153,11 @@ export const api = {
       invalidateItemsCache();
       return result;
     },
+    delete: async (id) => {
+      const result = await http(`/items/${id}`, { method: 'DELETE' });
+      invalidateItemsCache();
+      return result;
+    },
   },
   create: (data) => http('/items', { method: 'POST', body: JSON.stringify(data) }),  
   locations: {
@@ -268,6 +273,19 @@ export const usersApi = {
     }
     return res.json().catch(() => ({}));
   },
+
+  delete: async (id) => {
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: getHeaders('DELETE')
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Delete user failed');
+    }
+    return res.json().catch(() => ({ ok: true }));
+  },
 };
 
 export const locationsApi = {
@@ -286,7 +304,20 @@ export const locationsApi = {
   }).then(async r => {
     if (!r.ok) throw new Error((await r.json()).error || 'Location create failed');
     return r.json();
-  })
+  }),
+  delete: async (id) => {
+    const res = await fetch(`/api/locations/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: getHeaders('DELETE')
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Delete location failed');
+    }
+    invalidateLocationsCache();
+    return { ok: true };
+  }
 };
 
 

@@ -118,13 +118,32 @@ r.patch('/:id', async (req, res) => {
 
 /**
  * Delete user
+ * Cannot delete the last admin user
  */
 r.delete('/:id', async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Check if this user is an admin
+    const isAdmin = (user.roles || []).includes('admin');
+    if (isAdmin) {
+      // Count how many active admin users exist
+      const adminCount = await User.countDocuments({
+        roles: 'admin',
+        active: { $ne: false }
+      });
+
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          error: 'Cannot delete the last admin user'
+        });
+      }
+    }
+
+    await User.findByIdAndDelete(req.params.id);
     res.json({ ok: true });
   } catch (e) {
     console.error('Delete user failed:', e);

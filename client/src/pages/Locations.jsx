@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, locationsApi } from '../api';
 import { visitApi } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
-import RepBar from '../components/RepBar.jsx';
 import Badge from '../components/Badge.jsx';
 import Skeleton from '../components/Skeleton.jsx';
+import { useToast } from '../components/ToastContext.jsx';
 
 export default function Locations(){
-  // const [repId, setRepId] = useState(localStorage.getItem('selectedRepId') || '');
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState([]);
   const [visitsByLoc, setVisitsByLoc] = useState({});
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null);
   const nav = useNavigate();
+  const toast = useToast();
 
   // helper to fetch last N visits for a location (supports both API shapes)
   async function fetchRecentVisitsForLocation(locationId, limit = 5) {
@@ -90,6 +91,22 @@ export default function Locations(){
     return 'default';
   }
 
+  async function handleDelete(loc) {
+    if (!window.confirm(`Delete location "${loc.name}"? This will also delete all boxes at this location. This action cannot be undone.`)) {
+      return;
+    }
+    setDeleting(loc._id);
+    try {
+      await locationsApi.delete(loc._id);
+      setLocations(prev => prev.filter(l => l._id !== loc._id));
+      toast.success(`Location "${loc.name}" deleted`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete location');
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <div>
       <h2>Locations</h2>
@@ -127,13 +144,21 @@ export default function Locations(){
                 </div>
               )}
 
-              <div style={{ display:'flex', gap:8, marginTop:6 }}>
+              <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
                 <button className="btn" onClick={() => startVisit(loc._id)}>
                   Start / Continue Visit
                 </button>
                 <Link className="btn" to={`/boxes?location=${loc._id}`}>
                   View Boxes
                 </Link>
+                <button
+                  className="btn"
+                  style={{ background: '#c62828', color: '#fff', borderColor: '#c62828' }}
+                  onClick={() => handleDelete(loc)}
+                  disabled={deleting === loc._id}
+                >
+                  {deleting === loc._id ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
 
               <div style={{ marginTop:8 }}>
