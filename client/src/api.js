@@ -296,6 +296,28 @@ export const locationsApi = {
     if (!res.ok) throw new Error('Failed to load locations');
     return res.json();
   },
+  get: async (id) => {
+    const res = await fetch(`/api/locations/${id}`, { credentials: 'include' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to load location');
+    }
+    return res.json();
+  },
+  update: async (id, data) => {
+    const res = await fetch(`/api/locations/${id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Update location failed');
+    }
+    invalidateLocationsCache();
+    return res.json();
+  },
   create: (data) => fetch('/api/locations', {
     method: 'POST',
     credentials: 'include',

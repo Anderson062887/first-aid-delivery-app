@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../api';
+import { locationsApi } from '../api';
 import { useToast } from '../components/ToastContext.jsx';
 import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import Skeleton from '../components/Skeleton.jsx';
 
-export default function ItemEdit() {
+export default function LocationEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
   const [form, setForm] = useState({
     name: '',
-    sku: '',
-    packaging: 'each',
-    unitsPerPack: 1,
-    pricePerPack: 0,
-    active: true
+    street: '',
+    city: '',
+    state: '',
+    zip: ''
   });
   const [originalName, setOriginalName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -30,21 +29,20 @@ export default function ItemEdit() {
     async function load() {
       try {
         setLoading(true);
-        const item = await api.items.get(id);
+        const loc = await locationsApi.get(id);
         if (cancelled) return;
         setForm({
-          name: item.name || '',
-          sku: item.sku || '',
-          packaging: item.packaging || 'each',
-          unitsPerPack: item.unitsPerPack ?? 1,
-          pricePerPack: item.pricePerPack ?? 0,
-          active: item.active !== false
+          name: loc.name || '',
+          street: loc.address?.street || '',
+          city: loc.address?.city || '',
+          state: loc.address?.state || '',
+          zip: loc.address?.zip || ''
         });
-        setOriginalName(item.name || 'Item');
+        setOriginalName(loc.name || 'Location');
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || 'Failed to load item');
-          toast.error('Failed to load item');
+          setError(err.message || 'Failed to load location');
+          toast.error('Failed to load location');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -55,8 +53,8 @@ export default function ItemEdit() {
   }, [id, toast]);
 
   function update(e) {
-    const { name, value, type, checked } = e.target;
-    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
   }
 
   async function onSubmit(e) {
@@ -64,16 +62,20 @@ export default function ItemEdit() {
     setSaving(true);
     setError('');
     try {
-      await api.items.update(id, {
-        ...form,
-        unitsPerPack: Number(form.unitsPerPack),
-        pricePerPack: Number(form.pricePerPack)
+      await locationsApi.update(id, {
+        name: form.name,
+        address: {
+          street: form.street,
+          city: form.city,
+          state: form.state,
+          zip: form.zip
+        }
       });
-      toast.success('Item updated successfully');
-      navigate('/items');
+      toast.success('Location updated successfully');
+      navigate('/locations');
     } catch (err) {
       setError(err.message);
-      toast.error('Failed to update item');
+      toast.error('Failed to update location');
     } finally {
       setSaving(false);
     }
@@ -81,16 +83,16 @@ export default function ItemEdit() {
 
   async function handleDelete() {
     if (deleteConfirm !== originalName) {
-      toast.error('Item name does not match');
+      toast.error('Location name does not match');
       return;
     }
     setDeleting(true);
     try {
-      await api.items.delete(id);
+      await locationsApi.delete(id);
       toast.success(`"${originalName}" deleted permanently`);
-      navigate('/items');
+      navigate('/locations');
     } catch (err) {
-      toast.error(err.message || 'Failed to delete item');
+      toast.error(err.message || 'Failed to delete location');
     } finally {
       setDeleting(false);
     }
@@ -100,12 +102,12 @@ export default function ItemEdit() {
     return (
       <div>
         <Breadcrumbs items={[
-          { label: 'Items', to: '/items' },
+          { label: 'Locations', to: '/locations' },
           { label: 'Edit' }
         ]} />
-        <h2>Edit Item</h2>
+        <h2>Edit Location</h2>
         <div style={{ maxWidth: 500, margin: '0 auto' }}>
-          <Skeleton.Form fields={6} />
+          <Skeleton.Form fields={5} />
         </div>
       </div>
     );
@@ -114,10 +116,10 @@ export default function ItemEdit() {
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Items', to: '/items' },
+        { label: 'Locations', to: '/locations' },
         { label: `Edit: ${originalName}` }
       ]} />
-      <h2>Edit Item</h2>
+      <h2>Edit Location</h2>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
       <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 500, margin: '0 auto' }}>
         <div>
@@ -126,34 +128,23 @@ export default function ItemEdit() {
         </div>
 
         <div>
-          <label>SKU</label>
-          <input className="input" name="sku" value={form.sku} onChange={update} />
+          <label>Street Address</label>
+          <input className="input" name="street" value={form.street} onChange={update} />
         </div>
 
         <div className="row">
           <div>
-            <label>Packaging</label>
-            <select className="input" name="packaging" value={form.packaging} onChange={update}>
-              <option value="each">each</option>
-              <option value="case">case</option>
-            </select>
+            <label>City</label>
+            <input className="input" name="city" value={form.city} onChange={update} />
           </div>
           <div>
-            <label>Units per pack</label>
-            <input className="input" type="number" min="1" name="unitsPerPack" value={form.unitsPerPack} onChange={update} />
+            <label>State</label>
+            <input className="input" name="state" value={form.state} onChange={update} maxLength={2} style={{ textTransform: 'uppercase' }} />
           </div>
-        </div>
-
-        <div>
-          <label>Price per pack ($)</label>
-          <input className="input" type="number" step="0.01" min="0" name="pricePerPack" value={form.pricePerPack} onChange={update} />
-        </div>
-
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" name="active" checked={form.active} onChange={update} />
-            Active
-          </label>
+          <div>
+            <label>ZIP</label>
+            <input className="input" name="zip" value={form.zip} onChange={update} maxLength={10} />
+          </div>
         </div>
 
         <button className="btn primary" disabled={saving} type="submit">
@@ -167,7 +158,7 @@ export default function ItemEdit() {
           <div>
             <strong style={{ color: '#c62828' }}>Danger Zone</strong>
             <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.8 }}>
-              Permanently delete this item
+              Permanently delete this location and all its boxes
             </p>
           </div>
           {!showDelete && (
@@ -177,7 +168,7 @@ export default function ItemEdit() {
               style={{ background: '#fff', color: '#c62828', borderColor: '#c62828' }}
               onClick={() => setShowDelete(true)}
             >
-              Delete Item
+              Delete Location
             </button>
           )}
         </div>
@@ -185,7 +176,7 @@ export default function ItemEdit() {
         {showDelete && (
           <div style={{ marginTop: 16, padding: 12, background: '#ffebee', borderRadius: 8 }}>
             <p style={{ margin: '0 0 8px', fontSize: 14 }}>
-              This action <strong>cannot be undone</strong>. This will permanently delete the item.
+              This action <strong>cannot be undone</strong>. This will permanently delete the location and all boxes associated with it.
             </p>
             <p style={{ margin: '0 0 8px', fontSize: 14 }}>
               Please type <strong>{originalName}</strong> to confirm:
@@ -194,7 +185,7 @@ export default function ItemEdit() {
               className="input"
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
-              placeholder="Type item name to confirm"
+              placeholder="Type location name to confirm"
               style={{ marginBottom: 12 }}
             />
             <div style={{ display: 'flex', gap: 8 }}>
@@ -205,7 +196,7 @@ export default function ItemEdit() {
                 onClick={handleDelete}
                 disabled={deleting || deleteConfirm !== originalName}
               >
-                {deleting ? 'Deleting...' : 'I understand, delete this item'}
+                {deleting ? 'Deleting...' : 'I understand, delete this location'}
               </button>
               <button
                 type="button"

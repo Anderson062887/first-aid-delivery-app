@@ -1,15 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
-import { listItems, api } from '../api';
+import { listItems } from '../api';
 import { Link } from 'react-router-dom';
 import Skeleton from '../components/Skeleton.jsx';
-import { useToast } from '../components/ToastContext.jsx';
 
 export default function Items() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(null);
-  const toast = useToast();
 
   useEffect(() => {
     setLoading(true);
@@ -27,22 +24,6 @@ export default function Items() {
       i.sku?.toLowerCase().includes(q)
     );
   }, [items, search]);
-
-  async function handleDelete(item) {
-    if (!window.confirm(`Delete "${item.name}"? This action cannot be undone.`)) {
-      return;
-    }
-    setDeleting(item._id);
-    try {
-      await api.items.delete(item._id);
-      setItems(prev => prev.filter(i => i._id !== item._id));
-      toast.success(`"${item.name}" deleted`);
-    } catch (err) {
-      toast.error(err.message || 'Failed to delete item');
-    } finally {
-      setDeleting(null);
-    }
-  }
 
   return (
     <div className="page items-page">
@@ -65,7 +46,7 @@ export default function Items() {
         )}
       </div>
 
-      {loading && <Skeleton.Table rows={6} cols={8} />}
+      {loading && <Skeleton.Table rows={6} cols={7} />}
 
       {!loading && (
       <table className="items-table">
@@ -84,17 +65,7 @@ export default function Items() {
               <td data-label="Price/Pack">${Number(i.pricePerPack).toFixed(2)}</td>
               <td data-label="Active">{i.active ? 'Yes' : 'No'}</td>
               <td>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <Link to={`/items/${i._id}/edit`} className="btn btn-sm">Edit</Link>
-                  <button
-                    className="btn btn-sm"
-                    style={{ background: '#c62828', color: '#fff', borderColor: '#c62828' }}
-                    onClick={() => handleDelete(i)}
-                    disabled={deleting === i._id}
-                  >
-                    {deleting === i._id ? '...' : 'Delete'}
-                  </button>
-                </div>
+                <Link to={`/items/${i._id}/edit`} className="btn btn-sm">Edit</Link>
               </td>
             </tr>
           ))}

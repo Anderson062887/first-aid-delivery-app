@@ -70,6 +70,20 @@ r.post('/', async (req, res) => {
   res.status(201).json(loc);
 });
 
+/** Get single location */
+r.get('/:id', async (req, res) => {
+  try {
+    const loc = await Location.findById(req.params.id);
+    if (!loc) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+    res.json(loc);
+  } catch (e) {
+    console.error('Get location failed:', e);
+    res.status(500).json({ error: 'Failed to get location' });
+  }
+});
+
 /** Update location */
 r.put('/:id', async (req, res) => {
   try {

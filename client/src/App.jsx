@@ -11,6 +11,7 @@ import ItemEdit from './pages/ItemEdit.jsx'
 import Users from './pages/Users.jsx'
 import UserNew from './pages/UserNew.jsx'
 import LocationNew from './pages/LocationNew.jsx'
+import LocationEdit from './pages/LocationEdit.jsx'
 import VisitStart from './pages/VisitStart.jsx'
 import Visit from './pages/Visit.jsx'
 import DeliveryDetail from './pages/DeliveryDetail.jsx';
@@ -79,6 +80,7 @@ export default function App(){
                       <Route path="/users" element={<Users/>} />
                       <Route path="/users/new" element={<UserNew/>} />
                        <Route path="/locations/new" element={<LocationNew/>} />
+                       <Route path="/locations/:id/edit" element={<LocationEdit/>} />
                   </Route>
   
                   <Route path="/visits/start" element={<VisitStart/>} />
