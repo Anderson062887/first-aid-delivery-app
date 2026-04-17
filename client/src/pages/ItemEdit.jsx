@@ -104,7 +104,7 @@ export default function ItemEdit() {
           { label: 'Edit' }
         ]} />
         <h2>Edit Item</h2>
-        <div style={{ maxWidth: 500, margin: '0 auto' }}>
+        <div className="form-card">
           <Skeleton.Form fields={6} />
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function ItemEdit() {
       ]} />
       <h2>Edit Item</h2>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-      <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 500, margin: '0 auto' }}>
+      <form className="card form-card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
         <div>
           <label>Name</label>
           <input className="input" required name="name" value={form.name} onChange={update} />
@@ -162,8 +162,8 @@ export default function ItemEdit() {
       </form>
 
       {/* Danger Zone */}
-      <div className="card" style={{ maxWidth: 500, margin: '24px auto 0', border: '1px solid #c62828' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="card form-card" style={{ margin: '24px auto 0', border: '1px solid #c62828' }}>
+        <div className="danger-zone-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <strong style={{ color: '#c62828' }}>Danger Zone</strong>
             <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.8 }}>

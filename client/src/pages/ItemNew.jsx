@@ -51,7 +51,7 @@ export default function ItemNew() {
       ]} />
       <h2>New Item</h2>
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-      <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 500, margin: '0 auto' }}>
+      <form className="card form-card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
         <div>
           <label>Name</label>
           <input className="input" required name="name" value={form.name} onChange={update} />

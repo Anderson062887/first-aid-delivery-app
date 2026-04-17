@@ -58,7 +58,7 @@ export default function Cart({ lines = [], items = [], onRemove }) {
       {rows.length === 0 ? (
         <div style={{ opacity:.7 }}>No items added yet.</div>
       ) : (
-        <table className="table">
+        <table className="table items-table">
           <thead>
             <tr>
               <th>Item</th><th>Pkg</th><th>Qty</th><th>Unit $</th><th>Total $</th><th></th>
@@ -67,11 +67,11 @@ export default function Cart({ lines = [], items = [], onRemove }) {
           <tbody>
             {rows.map((l, idx) => (
               <tr key={idx}>
-                <td>{l.name}</td>
-                <td>{l.packaging}</td>
-                <td>{l.qty}</td>
-                <td>{l.unitPrice.toFixed(2)}</td>
-                <td>{l.lineTotal.toFixed(2)}</td>
+                <td data-label="Item">{l.name}</td>
+                <td data-label="Pkg">{l.packaging}</td>
+                <td data-label="Qty">{l.qty}</td>
+                <td data-label="Unit $">{l.unitPrice.toFixed(2)}</td>
+                <td data-label="Total $">{l.lineTotal.toFixed(2)}</td>
                 <td><button className="btn" onClick={()=>onRemove(idx)}>Remove</button></td>
               </tr>
             ))}

@@ -4,9 +4,9 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
 nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .container { padding: var(--pad); max-width: 1100px; margin: 0 auto; }
 .card { border:1px solid #eee; border-radius: 10px; padding: var(--pad); margin-bottom: 12px; }
-.btn { padding:8px 12px; border-radius: 8px; border:1px solid #ccc; background:#fff; cursor:pointer; text-decoration: none;}
+.btn { padding:10px 14px; min-height: 40px; border-radius: 8px; border:1px solid #ccc; background:#fff; cursor:pointer; text-decoration: none; font-size: 14px; line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .btn.primary { background:#222; color:#fff; border-color:#222; }
-.input, select { padding:8px; border-radius:8px; border:1px solid #ccc; width:100%; }
+.input, select { padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; font-size: 16px; min-height: 40px; box-sizing: border-box; }
 .table { width:100%; border-collapse: collapse; }
 .table th, .table td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
 .flex { display:flex; gap:var(--gap); align-items:center; }
@@ -574,4 +574,97 @@ a.btn { text-decoration: none; }
 .breadcrumb-current {
   color: #333;
   font-weight: 500;
+}
+
+/* ============================================
+   Mobile utilities
+   ============================================ */
+
+/* Responsive narrow form card — shrinks below 500px */
+.form-card {
+  max-width: 500px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Action button row — stacks vertically on small screens */
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.action-row > * {
+  flex: 0 1 auto;
+}
+@media (max-width: 600px) {
+  .action-row { flex-direction: column; align-items: stretch; }
+  .action-row > .btn,
+  .action-row > a.btn { width: 100%; }
+}
+
+/* Reusable modal backdrop + dialog with responsive width */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.modal-dialog {
+  background: #fff;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+/* Filters grid: 3 → 2 → 1 columns */
+@media (max-width: 900px) {
+  .filters { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .filters { grid-template-columns: 1fr; }
+}
+
+/* Toast: full-width on small screens */
+@media (max-width: 480px) {
+  .toast-container {
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    top: 64px;
+  }
+  .toast { font-size: 14px; }
+}
+
+/* Danger-zone header row should stack button under text on small screens */
+@media (max-width: 480px) {
+  .danger-zone-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+  .danger-zone-header > .btn { width: 100%; }
+}
+
+/* Line-item row used by DeliveryEdit: stack fields on mobile */
+.line-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .line-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .line-row > .line-item { grid-column: 1 / -1; }
+  .line-row > .line-remove { grid-column: 1 / -1; }
 }

@@ -57,7 +57,7 @@ export default function UserNew(){
         { label: 'Users', to: '/users' },
         { label: 'New User' }
       ]} />
-      <div className="card" style={{ display:'grid', gap:12, maxWidth: 500, margin:"0 auto"}}>
+      <div className="card form-card" style={{ display:'grid', gap:12 }}>
         <h2 style={{ marginTop: 0 }}>New User</h2>
         {err && <div style={{color:'red'}}>{err}</div>}
         <div>

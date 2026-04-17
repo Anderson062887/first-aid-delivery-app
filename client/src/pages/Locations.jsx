@@ -126,7 +126,7 @@ export default function Locations(){
                 </div>
               )}
 
-              <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
+              <div className="action-row" style={{ marginTop: 6 }}>
                 <button className="btn" onClick={() => startVisit(loc._id)}>
                   Start / Continue Visit
                 </button>

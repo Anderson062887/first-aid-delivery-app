@@ -200,12 +200,13 @@ export default function Visit(){
                     alignItems:'center',
                     gap:10,
                     justifyContent:'space-between',
+                    flexWrap:'wrap',
                     border:'1px solid #eee',
                     borderRadius:8,
                     padding:10
                   }}
                 >
-                  <div>
+                  <div style={{ flex:'1 1 180px', minWidth:0 }}>
                     <div style={{ fontWeight:600 }}>{b.label}</div>
                     {b.size && <div style={{ opacity:.8 }}>Size: {b.size}</div>}
                     <div style={{ marginTop:4 }}>
@@ -297,24 +298,16 @@ export default function Visit(){
       {/* Confirmation Dialog */}
       {showConfirm && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}
+          className="modal-backdrop"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-title"
         >
-          <div className="card" style={{ maxWidth: 400, background: '#fff' }}>
+          <div className="card modal-dialog">
             <h3 id="confirm-title" style={{ margin: '0 0 12px' }}>Confirm Submission</h3>
             <p>Are you sure you want to submit this visit as <strong>{outcome || 'unspecified'}</strong>?</p>
             <p style={{ opacity: 0.8, fontSize: 14 }}>This action cannot be undone.</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => setShowConfirm(false)}>Cancel</button>
               <button className="btn primary" onClick={submitVisit} disabled={saving}>
                 {saving ? 'Submitting…' : 'Yes, Submit'}

@@ -175,8 +175,8 @@ export default function DeliveryEdit() {
         {msg && <div style={{ color: 'green' }}>{msg}</div>}
       </div>
 
-      <div className="card" style={{ display: 'grid', gap: 8 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="card" style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0 }}>Lines</h3>
           <button className="btn" onClick={addLine}>+ Add line</button>
         </div>
@@ -196,10 +196,22 @@ export default function DeliveryEdit() {
           }
 
           return (
-            <div key={idx} className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              {/* Item select */}
+            <div
+              key={idx}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: 8,
+                alignItems: 'center',
+                padding: 10,
+                border: '1px solid #eee',
+                borderRadius: 8,
+              }}
+            >
               <select
                 className="input"
+                aria-label="Item"
+                style={{ gridColumn: '1 / -1' }}
                 value={l.item}
                 onChange={(e) => {
                   const newItemId = e.target.value;
@@ -220,38 +232,35 @@ export default function DeliveryEdit() {
                 ))}
               </select>
 
-              {/* Quantity */}
               <input
                 className="input"
+                aria-label="Quantity"
                 type="number"
                 step="0.01"
                 min="0"
                 value={l.quantity}
                 onChange={(e) => updateLine(idx, { quantity: e.target.value })}
                 placeholder="Qty"
-                style={{ width: 110 }}
               />
 
-              {/* Packaging */}
               <input
                 className="input"
+                aria-label="Packaging"
                 value={l.packaging}
                 onChange={(e) => {
                   const pkg = e.target.value;
                   const np = calcUnitPrice(it, pkg);
                   updateLine(idx, { packaging: pkg, unitPrice: np });
                 }}
-                placeholder="Packaging (e.g. each, case)"
-                style={{ width: 200 }}
+                placeholder="each or case"
               />
 
-              {/* Unit price (read-only display) */}
-              <div  className="input" style={{ minWidth: 130 }}>@ ${money(unitPrice)}</div>
+              <div style={{ padding: '8px 0', whiteSpace: 'nowrap' }}>@ ${money(unitPrice)}</div>
+              <div style={{ padding: '8px 0', whiteSpace: 'nowrap', fontWeight: 600 }}>= ${money(lineTotal)}</div>
 
-              {/* Line total */}
-              <div>= ${money(lineTotal)}</div>
-
-              <button className="btn" onClick={() => removeLine(idx)}>Remove</button>
+              <button className="btn" onClick={() => removeLine(idx)} style={{ gridColumn: '1 / -1' }}>
+                Remove
+              </button>
             </div>
           );
         })}
