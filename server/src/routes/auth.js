@@ -3,8 +3,17 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimit.js';
+import { authRequired, requireRoles } from '../middleware/auth.js';
 
 const r = Router();
+
+// Valid role values
+const VALID_ROLES = ['rep', 'admin'];
+
+function validateRoles(roles) {
+  if (!Array.isArray(roles)) return false;
+  return roles.every(role => VALID_ROLES.includes(role));
+}
 
 // Password validation: min 8 chars, at least one uppercase, one lowercase, one number
 function validatePassword(password) {
@@ -75,10 +84,15 @@ r.get('/me', async (req, res) => {
 });
 
 // POST /api/auth/register  (admin only, to create users)
-r.post('/register', registerLimiter, async (req, res) => {
+r.post('/register', registerLimiter, authRequired, requireRoles('admin'), async (req, res) => {
   try {
     const { name, email, password, roles = ['rep'] } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
+
+    // Validate roles against the allowed set
+    if (!validateRoles(roles) || roles.length === 0) {
+      return res.status(400).json({ error: `Invalid roles. Allowed: ${VALID_ROLES.join(', ')}` });
+    }
 
     // Validate password strength
     const passwordError = validatePassword(password);
