@@ -1,6 +1,7 @@
 // server/src/routes/exports.js
 import { Router } from 'express';
 import Delivery from '../models/Delivery.js';
+import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
 
@@ -37,13 +38,41 @@ async function loadDeliveriesWithFilters(qs) {
 
   const deliveries = await Delivery.find(query)
     .sort({ deliveredAt: 1, _id: 1 })
-    .populate('location box visit lines.item')
+    .populate('location box lines.item')
+    .populate({ path: 'visit', populate: { path: 'rep', select: 'name' } })
     .lean();
 
   if (repId) {
     return deliveries.filter(d => d.visit?.rep?._id?.toString() === String(repId));
   }
   return deliveries;
+}
+
+const OUTCOMES = ['completed', 'partial', 'no_access', 'skipped'];
+
+// Submitted visits matching the export filters (outcomes belong to visits, not deliveries)
+async function loadSubmittedVisits(qs) {
+  const { from, to, location, repId, repName, tz } = qs || {};
+  const query = { status: 'submitted' };
+  const submittedRange = dayRange(from, to, tz);
+  if (submittedRange) query.submittedAt = submittedRange;
+  if (location) query.location = location;
+  if (repId) query.rep = repId;
+
+  let visits = await Visit.find(query).populate('rep', 'name').lean();
+  if (!repId && repName && String(repName).trim()) {
+    const rx = new RegExp(escapeRegex(String(repName).trim()), 'i');
+    visits = visits.filter(v => rx.test(v.rep?.name || ''));
+  }
+  return visits;
+}
+
+function addDelivery(agg, d) {
+  agg.deliveries += 1;
+  agg.items += (Array.isArray(d.lines) ? d.lines.length : 0);
+  agg.subtotal += Number(d.subtotal || 0);
+  agg.tax += Number(d.tax || 0);
+  agg.total += Number(d.total || 0);
 }
 
 /**
@@ -214,19 +243,21 @@ r.get('/items-summary.csv', async (req, res) => {
 /**
  * GET /api/exports/reps.csv
  * Per-rep productivity over filters
- * Filters: from, to, location
+ * Filters: from, to, location, repId, repName
+ * Money/boxes come from deliveries (by delivery date); outcome columns count
+ * each submitted visit once (by submitted date), like /api/reports/rep-productivity.
  */
 r.get('/reps.csv', async (req, res) => {
   try {
-    const deliveries = await loadDeliveriesWithFilters(req.query);
+    const [deliveries, visits] = await Promise.all([
+      loadDeliveriesWithFilters(req.query),
+      loadSubmittedVisits(req.query)
+    ]);
 
-    // Group per repId
-    const perRep = new Map(); // repId -> stats
-    for (const d of deliveries) {
-      const repId = d.visit?.rep?._id?.toString() || 'unknown';
-      const repName = d.visit?.rep?.name || d.repName || 'Unknown';
-      if (!perRep.has(repId)) {
-        perRep.set(repId, {
+    const perRep = new Map(); // key -> stats
+    const statsFor = (key, repId, repName) => {
+      if (!perRep.has(key)) {
+        perRep.set(key, {
           repId,
           repName,
           visits: new Set(),   // unique visit ids
@@ -238,19 +269,33 @@ r.get('/reps.csv', async (req, res) => {
           outcomes: { completed:0, partial:0, no_access:0, skipped:0, other:0 }
         });
       }
-      const agg = perRep.get(repId);
-      if (d.visit?._id) agg.visits.add(d.visit._id.toString());
-      agg.deliveries += 1;
-      agg.items += (Array.isArray(d.lines) ? d.lines.length : 0);
-      agg.subtotal += Number(d.subtotal || 0);
-      agg.tax += Number(d.tax || 0);
-      agg.total += Number(d.total || 0);
-      const oc = d.visit?.outcome || '';
-      if (oc === 'completed') agg.outcomes.completed++;
-      else if (oc === 'partial') agg.outcomes.partial++;
-      else if (oc === 'no_access') agg.outcomes.no_access++;
-      else if (oc === 'skipped') agg.outcomes.skipped++;
-      else agg.outcomes.other++;
+      return perRep.get(key);
+    };
+    const forRep = (rep) => statsFor(String(rep?._id || rep), String(rep?._id || rep || ''), rep?.name || 'Unknown');
+
+    // Outcomes come from submitted visits, counted once per visit (also visits
+    // with no deliveries, e.g. "no access"). Dates apply to when it was submitted.
+    for (const v of visits) {
+      const agg = forRep(v.rep);
+      agg.visits.add(String(v._id));
+      agg.outcomes[OUTCOMES.includes(v.outcome) ? v.outcome : 'other']++;
+    }
+
+    // Money and boxes come from deliveries
+    const withoutVisit = [];
+    for (const d of deliveries) {
+      if (!d.visit?.rep) { withoutVisit.push(d); continue; }
+      const agg = forRep(d.visit.rep);
+      agg.visits.add(String(d.visit._id));
+      addDelivery(agg, d);
+    }
+
+    // Deliveries without a visit only carry a name: add them to the rep with
+    // that name if there is exactly one, otherwise to a row without a RepID.
+    for (const d of withoutVisit) {
+      const name = d.repName || 'Unknown';
+      const matches = [...perRep.values()].filter(a => a.repId && a.repName === name);
+      addDelivery(matches.length === 1 ? matches[0] : statsFor(`name:${name}`, '', name), d);
     }
 
     const dtStamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
