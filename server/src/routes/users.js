@@ -2,15 +2,21 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import Visit from '../models/Visit.js';
+import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
 
 const r = Router();
 
-// Valid role values
-const VALID_ROLES = ['rep', 'admin'];
+const isActiveAdmin = (u) => (u.roles || []).includes('admin') && u.active !== false;
 
-function validateRoles(roles) {
-  if (!Array.isArray(roles)) return false;
-  return roles.every(r => VALID_ROLES.includes(r));
+// True if no other active admin exists besides `user`
+async function isLastActiveAdmin(user) {
+  const others = await User.countDocuments({
+    _id: { $ne: user._id },
+    roles: 'admin',
+    active: { $ne: false }
+  });
+  return others === 0;
 }
 
 /**
@@ -31,10 +37,12 @@ r.get('/', async (_req, res) => {
 r.post('/', async (req, res) => {
   try {
     const { name, email, password, roles = ['rep'], active = true } = req.body || {};
-
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) return res.status(400).json({ error: passwordError });
 
     const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
     if (existing) {
@@ -85,6 +93,8 @@ r.patch('/:id', async (req, res) => {
     const u = await User.findById(req.params.id);
     if (!u) return res.sendStatus(404);
 
+    const wasActiveAdmin = isActiveAdmin(u);
+
     if (name !== undefined) u.name = name;
     if (email !== undefined) {
       const lower = String(email).toLowerCase().trim();
@@ -102,7 +112,16 @@ r.patch('/:id', async (req, res) => {
       u.roles = roles;
     }
 
+    // Never leave the system without an active admin (nobody could manage users)
+    if (wasActiveAdmin && !isActiveAdmin(u) && await isLastActiveAdmin(u)) {
+      return res.status(400).json({
+        error: 'This is the last active admin. Make another user an admin first.'
+      });
+    }
+
     if (password !== undefined && password !== '') {
+      const passwordError = validatePassword(password);
+      if (passwordError) return res.status(400).json({ error: passwordError });
       u.passwordHash = await bcrypt.hash(password, 10);
     }
 
@@ -118,7 +137,7 @@ r.patch('/:id', async (req, res) => {
 
 /**
  * Delete user
- * Cannot delete the last admin user
+ * Cannot delete the last admin user, or a user with visit history
  */
 r.delete('/:id', async (req, res) => {
   try {
@@ -127,20 +146,18 @@ r.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if this user is an admin
-    const isAdmin = (user.roles || []).includes('admin');
-    if (isAdmin) {
-      // Count how many active admin users exist
-      const adminCount = await User.countDocuments({
-        roles: 'admin',
-        active: { $ne: false }
+    if (isActiveAdmin(user) && await isLastActiveAdmin(user)) {
+      return res.status(400).json({
+        error: 'Cannot delete the last admin user'
       });
+    }
 
-      if (adminCount <= 1) {
-        return res.status(400).json({
-          error: 'Cannot delete the last admin user'
-        });
-      }
+    // Visits point at their rep; deleting the user would orphan that history
+    const visitCount = await Visit.countDocuments({ rep: user._id });
+    if (visitCount > 0) {
+      return res.status(409).json({
+        error: `${user.name || 'This user'} has ${visitCount} visit(s) on record. Deactivate the user instead of deleting.`
+      });
     }
 
     await User.findByIdAndDelete(req.params.id);
@@ -152,7 +169,3 @@ r.delete('/:id', async (req, res) => {
 });
 
 export default r;
-
-
-
-

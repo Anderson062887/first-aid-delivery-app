@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import Location from '../models/Location.js';
 import Box from '../models/Box.js';
+import Visit from '../models/Visit.js';
+import Delivery from '../models/Delivery.js';
+import { requireRoles } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -44,7 +47,7 @@ r.get('/', async (req, res) => {
  *   boxLabelPrefix?: string (default 'Box')
  * }
  */
-r.post('/', async (req, res) => {
+r.post('/', requireRoles('admin'), async (req, res) => {
   const { name, address, boxCount, boxSizes, boxLabelPrefix='Box' } = req.body;
   if(!name) return res.status(400).json({ error: 'name is required' });
 
@@ -85,7 +88,7 @@ r.get('/:id', async (req, res) => {
 });
 
 /** Update location */
-r.put('/:id', async (req, res) => {
+r.put('/:id', requireRoles('admin'), async (req, res) => {
   try {
     const { name, address } = req.body;
 
@@ -117,13 +120,26 @@ r.put('/:id', async (req, res) => {
   }
 });
 
-/** Delete location */
-r.delete('/:id', async (req, res) => {
+/** Delete location (and its boxes). Refused if it has visit/delivery history. */
+r.delete('/:id', requireRoles('admin'), async (req, res) => {
   try {
-    const loc = await Location.findByIdAndDelete(req.params.id);
+    const loc = await Location.findById(req.params.id);
     if (!loc) {
       return res.status(404).json({ error: 'Location not found' });
     }
+
+    const [visits, deliveries] = await Promise.all([
+      Visit.countDocuments({ location: loc._id }),
+      Delivery.countDocuments({ location: loc._id })
+    ]);
+    if (visits > 0 || deliveries > 0) {
+      return res.status(409).json({
+        error: `"${loc.name}" has ${visits} visit(s) and ${deliveries} delivery(ies) on record, so it can't be deleted.`
+      });
+    }
+
+    await Box.deleteMany({ location: loc._id });
+    await Location.findByIdAndDelete(loc._id);
     res.sendStatus(204);
   } catch (e) {
     console.error('Delete location failed:', e);

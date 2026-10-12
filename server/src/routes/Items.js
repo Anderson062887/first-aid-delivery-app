@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Item from '../models/Item.js';
+import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
 
 const r = Router();
@@ -82,10 +83,20 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
  */
 r.delete('/:id', requireRoles('admin'), async (req, res) => {
   try {
-    const item = await Item.findByIdAndDelete(req.params.id);
+    const item = await Item.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
+
+    // Past deliveries reference the item; deleting it would turn them into "Unknown Item"
+    const used = await Delivery.countDocuments({ 'lines.item': item._id });
+    if (used > 0) {
+      return res.status(409).json({
+        error: `"${item.name}" is used in ${used} delivery(ies). Uncheck "Active" to retire it instead of deleting.`
+      });
+    }
+
+    await Item.findByIdAndDelete(item._id);
     res.json({ ok: true });
   } catch (e) {
     console.error('Item delete failed:', e);

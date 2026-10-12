@@ -1,43 +1,43 @@
 import { Router } from 'express';
 import Delivery from '../models/Delivery.js';
+import Visit from '../models/Visit.js';
+import { dayRange } from '../utils/dates.js';
 
 const r = Router();
 
-// helpers
-function parseDateStart(d) {
-  const dt = new Date(d);
-  if (isNaN(dt)) return null;
-  dt.setHours(0,0,0,0);
-  return dt;
-}
-function parseDateEnd(d) {
-  const dt = new Date(d);
-  if (isNaN(dt)) return null;
-  dt.setHours(23,59,59,999);
-  return dt;
-}
 
-async function loadDeliveries({ from, to, location }) {
+async function loadDeliveries({ from, to, location, tz }) {
   const q = {};
-  const fromDt = from ? parseDateStart(from) : null;
-  const toDt   = to   ? parseDateEnd(to)   : null;
-  if (fromDt || toDt) {
-    q.deliveredAt = {};
-    if (fromDt) q.deliveredAt.$gte = fromDt;
-    if (toDt)   q.deliveredAt.$lte = toDt;
-  }
+  const deliveredRange = dayRange(from, to, tz);
+  if (deliveredRange) q.deliveredAt = deliveredRange;
   if (location) q.location = location;
 
   // Populate what we need for charts
   const rows = await Delivery.find(q)
     .sort({ deliveredAt: -1 })
-    .populate('visit')           // for rep + outcome (we didn't deep-populate rep model on purpose to avoid strictPopulate issues)
+    .populate({ path: 'visit', populate: { path: 'rep', select: 'name' } })
     .populate('location', 'name')
     .populate('box', 'label size')
     .populate('lines.item', 'name') // item name
     .lean();
 
   return rows;
+}
+
+const OUTCOME_KEYS = ['completed', 'partial', 'no_access', 'skipped'];
+const emptyOutcomes = () => ({ completed:0, partial:0, no_access:0, skipped:0, other:0 });
+const outcomeKey = (o) => (OUTCOME_KEYS.includes(o) ? o : 'other');
+
+// Outcomes belong to visits, not deliveries: a visit counts once however many
+// boxes were refilled, and "no access"/"skipped" visits usually have no
+// deliveries at all. Date range applies to when the visit was submitted.
+async function loadSubmittedVisits({ from, to, location, tz }) {
+  const q = { status: 'submitted' };
+  const submittedRange = dayRange(from, to, tz);
+  if (submittedRange) q.submittedAt = submittedRange;
+  if (location) q.location = location;
+
+  return Visit.find(q).populate('rep', 'name').lean();
 }
 
 /**
@@ -49,7 +49,7 @@ r.get('/items-usage', async (req, res) => {
     const { from, to, location } = req.query;
     const limit = Math.max(1, Math.min(50, parseInt(req.query.limit ?? '10', 10)));
 
-    const deliveries = await loadDeliveries({ from, to, location });
+    const deliveries = await loadDeliveries({ from, to, location, tz: req.query.tz });
 
     const map = new Map(); // itemId -> { itemId, name, quantity, amount }
     for (const d of deliveries) {
@@ -82,11 +82,13 @@ r.get('/items-usage', async (req, res) => {
 r.get('/rep-productivity', async (req, res) => {
   try {
     const { from, to, location } = req.query;
-    const deliveries = await loadDeliveries({ from, to, location });
+    const [deliveries, visits] = await Promise.all([
+      loadDeliveries({ from, to, location, tz: req.query.tz }),
+      loadSubmittedVisits({ from, to, location, tz: req.query.tz })
+    ]);
 
     const perRep = new Map(); // repName -> stats
-    for (const d of deliveries) {
-      const repName = d.visit?.rep?.name || d.repName || 'Unknown';
+    const statsFor = (repName) => {
       if (!perRep.has(repName)) {
         perRep.set(repName, {
           repName,
@@ -96,23 +98,28 @@ r.get('/rep-productivity', async (req, res) => {
           subtotal: 0,
           tax: 0,
           total: 0,
-          outcomes: { completed:0, partial:0, no_access:0, skipped:0, other:0 }
+          outcomes: emptyOutcomes()
         });
       }
-      const agg = perRep.get(repName);
+      return perRep.get(repName);
+    };
+
+    // Money and boxes come from deliveries
+    for (const d of deliveries) {
+      const agg = statsFor(d.visit?.rep?.name || d.repName || 'Unknown');
       if (d.visit?._id) agg.visitIds.add(String(d.visit._id));
       agg.deliveries += 1;
       agg.lineItems  += Array.isArray(d.lines) ? d.lines.length : 0;
       agg.subtotal   += Number(d.subtotal || 0);
       agg.tax        += Number(d.tax || 0);
       agg.total      += Number(d.total || 0);
+    }
 
-      const oc = d.visit?.outcome || '';
-      if (oc === 'completed') agg.outcomes.completed++;
-      else if (oc === 'partial') agg.outcomes.partial++;
-      else if (oc === 'no_access') agg.outcomes.no_access++;
-      else if (oc === 'skipped') agg.outcomes.skipped++;
-      else agg.outcomes.other++;
+    // Outcomes come from submitted visits (one count per visit)
+    for (const v of visits) {
+      const agg = statsFor(v.rep?.name || 'Unknown');
+      agg.visitIds.add(String(v._id));
+      agg.outcomes[outcomeKey(v.outcome)]++;
     }
 
     const rows = Array.from(perRep.values())
@@ -137,22 +144,15 @@ r.get('/rep-productivity', async (req, res) => {
 
 /**
  * GET /api/reports/outcomes?from&to&location
- * Returns total counts per outcome for a donut/pie.
+ * Returns the number of submitted visits per outcome for a donut/pie.
  */
 r.get('/outcomes', async (req, res) => {
   try {
     const { from, to, location } = req.query;
-    const deliveries = await loadDeliveries({ from, to, location });
+    const visits = await loadSubmittedVisits({ from, to, location, tz: req.query.tz });
 
-    const counts = { completed:0, partial:0, no_access:0, skipped:0, other:0 };
-    for (const d of deliveries) {
-      const oc = d.visit?.outcome || '';
-      if (oc === 'completed') counts.completed++;
-      else if (oc === 'partial') counts.partial++;
-      else if (oc === 'no_access') counts.no_access++;
-      else if (oc === 'skipped') counts.skipped++;
-      else counts.other++;
-    }
+    const counts = emptyOutcomes();
+    for (const v of visits) counts[outcomeKey(v.outcome)]++;
 
     res.json({ from, to, location, counts });
   } catch (e) {

@@ -3,10 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock the offline module before importing api
 vi.mock('../../src/offline.js', () => ({
   isOnline: vi.fn(() => true),
-  enqueue: vi.fn()
+  enqueue: vi.fn(),
+  getCsrfToken: vi.fn(() => 'test-csrf')
 }));
 
-import { api, visitApi, authApi } from '../../src/api.js';
+import { api, visitApi, authApi, usersApi, locationsApi, reportsApi } from '../../src/api.js';
 import { isOnline, enqueue } from '../../src/offline.js';
 
 describe('api.js', () => {
@@ -179,6 +180,30 @@ describe('api.js', () => {
         }));
         expect(global.fetch).not.toHaveBeenCalled();
       });
+
+      it('should queue when the request fails at the network level while "online"', async () => {
+        isOnline.mockReturnValue(true);
+        global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        const payload = { location: 'loc1', box: 'box1', lines: [{ item: 'item1', quantity: 1 }] };
+        const result = await api.deliveries.create(payload);
+
+        expect(result._offlineQueued).toBe(true);
+        expect(enqueue).toHaveBeenCalledWith({ path: '/api/deliveries', method: 'POST', body: payload });
+      });
+
+      it('should reject with the server error and NOT queue when the server rejects it', async () => {
+        isOnline.mockReturnValue(true);
+        global.fetch.mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ error: 'line.quantity must be > 0' })
+        });
+
+        await expect(api.deliveries.create({ location: 'loc1', box: 'box1', lines: [] }))
+          .rejects.toMatchObject({ message: 'line.quantity must be > 0', status: 400 });
+        expect(enqueue).not.toHaveBeenCalled();
+      });
     });
 
     describe('update (offline-aware)', () => {
@@ -231,17 +256,20 @@ describe('api.js', () => {
         }));
       });
 
-      it('should queue visit start when offline', async () => {
+      it('should fail (not queue) visit start when offline', async () => {
         isOnline.mockReturnValue(false);
 
-        const result = await visitApi.start('location1');
+        await expect(visitApi.start('location1')).rejects.toThrow(/offline/i);
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
 
-        expect(result._offlineQueued).toBe(true);
-        expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-          path: '/api/visits',
-          method: 'POST',
-          body: { location: 'location1' }
-        }));
+      it('should fail (not queue) visit start on a network error', async () => {
+        isOnline.mockReturnValue(true);
+        global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        await expect(visitApi.start('location1')).rejects.toThrow(/no connection/i);
+        expect(enqueue).not.toHaveBeenCalled();
       });
     });
 
@@ -339,6 +367,66 @@ describe('api.js', () => {
           method: 'GET'
         }));
       });
+    });
+  });
+
+  // The server rejects any write without a matching x-csrf-token header
+  // (403 in production; CSRF is skipped in server tests, so check it here).
+  describe('CSRF header on writes', () => {
+    const writes = [
+      ['usersApi.create', () => usersApi.create({ name: 'A', email: 'a@x.com', password: 'Passw0rd!' })],
+      ['usersApi.patch', () => usersApi.patch('u1', { active: false })],
+      ['usersApi.delete', () => usersApi.delete('u1')],
+      ['locationsApi.create', () => locationsApi.create({ name: 'Loc' })],
+      ['locationsApi.update', () => locationsApi.update('l1', { name: 'Loc' })],
+      ['locationsApi.delete', () => locationsApi.delete('l1')],
+      ['api.items.create', () => api.items.create({ name: 'I', pricePerPack: 1 })],
+      ['api.items.update', () => api.items.update('i1', { name: 'I' })],
+      ['api.items.delete', () => api.items.delete('i1')],
+      ['api.locations.create', () => api.locations.create({ name: 'Loc' })],
+      ['api.deliveries.create', () => api.deliveries.create({ location: 'l', box: 'b', lines: [] })],
+      ['api.deliveries.update', () => api.deliveries.update('d1', { lines: [] })],
+      ['visitApi.start', () => visitApi.start('l1')],
+      ['visitApi.submit', () => visitApi.submit('v1', { outcome: 'partial' })],
+      ['visitApi.update', () => visitApi.update('v1', { note: 'x' })],
+    ];
+
+    it.each(writes)('%s sends x-csrf-token', async (_name, call) => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ _id: 'x' })
+      });
+
+      await call();
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [, opts] = global.fetch.mock.calls[0];
+      expect(opts.headers['x-csrf-token']).toBe('test-csrf');
+    });
+  });
+
+  // The server needs the user's timezone to turn YYYY-MM-DD into the right day
+  describe('timezone on date filters', () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    it.each([
+      ['api.deliveries.list', () => api.deliveries.list({ from: '2026-10-01', to: '2026-10-11' })],
+      ['reportsApi.itemsUsage', () => reportsApi.itemsUsage({ from: '2026-10-01' })],
+      ['reportsApi.repProductivity', () => reportsApi.repProductivity({ to: '2026-10-11' })],
+      ['reportsApi.outcomes', () => reportsApi.outcomes({ from: '2026-10-01', to: '2026-10-11' })],
+    ])('%s sends tz', async (_name, call) => {
+      global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      await call();
+      const url = new URL(global.fetch.mock.calls[0][0], 'http://x');
+      expect(url.searchParams.get('tz')).toBe(tz);
+    });
+
+    it('omits tz when there is no date filter', async () => {
+      global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      await reportsApi.outcomes({ location: 'l1' });
+      const url = new URL(global.fetch.mock.calls[0][0], 'http://x');
+      expect(url.searchParams.has('tz')).toBe(false);
     });
   });
 });

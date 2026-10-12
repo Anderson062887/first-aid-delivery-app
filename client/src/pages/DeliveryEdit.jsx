@@ -9,15 +9,14 @@ function getCsrfToken() {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
-// Decide unit price from the selected item + packaging
+// Decide unit price from the selected item + packaging (same rule as the server):
+// a case costs pricePerPack, a single unit costs pricePerPack / unitsPerPack.
 function calcUnitPrice(itemDoc, packaging) {
   if (!itemDoc) return 0;
-  const p = String(packaging || '').toLowerCase();
-  // If packaging mentions case/box/pack -> use pricePerPack; otherwise use price (each)
-  if (p.includes('case') || p.includes('box') || p.includes('pack')) {
-    return Number(itemDoc.pricePerPack ?? itemDoc.price ?? 0);
-  }
-  return Number(itemDoc.price ?? itemDoc.pricePerPack ?? 0);
+  const packPrice = Number(itemDoc.pricePerPack) || 0;
+  const unitsPerPack = Number(itemDoc.unitsPerPack) || 1;
+  const p = String(packaging || itemDoc.packaging || 'each').toLowerCase().trim();
+  return p === 'case' ? packPrice : packPrice / unitsPerPack;
 }
 
 export default function DeliveryEdit() {
@@ -52,7 +51,7 @@ export default function DeliveryEdit() {
           item: l.item?._id || l.item || '',
           name: l.item?.name || '',
           quantity: Number(l.quantity || 0),
-          packaging: l.packaging || '',
+          packaging: l.packaging === 'case' ? 'case' : 'each',
           unitPrice: Number(l.unitPrice || 0),
         }));
         setDelivery(d);
@@ -97,14 +96,29 @@ export default function DeliveryEdit() {
       { item: '', name: '', quantity: 1, packaging: 'each', unitPrice: 0 },
     ]);
 
-  // Page total (recompute from current unitPrice)
-  const pageTotal = lines.reduce(
-    (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
-    0
-  );
+  // Page total (prices always follow the catalog item + packaging)
+  const pageTotal = lines.reduce((s, l) => {
+    const it = items.find((x) => x._id === l.item);
+    return s + Number(l.quantity || 0) * calcUnitPrice(it, l.packaging);
+  }, 0);
+
+  // Catch obvious mistakes before calling the server
+  function validate() {
+    for (const [i, l] of lines.entries()) {
+      const n = i + 1;
+      if (!l.item) return `Line ${n}: select an item`;
+      const q = Number(l.quantity);
+      if (!Number.isFinite(q) || q <= 0) return `Line ${n}: quantity must be greater than 0`;
+      if (l.packaging !== 'case' && !Number.isInteger(q)) return `Line ${n}: quantity must be a whole number for "each"`;
+    }
+    if (lines.length === 0) return 'A delivery needs at least one line';
+    return '';
+  }
 
   // Save (PATCH) — server recomputes prices too
   async function save() {
+    const problem = validate();
+    if (problem) { setErr(problem); setMsg(''); return; }
     try {
       setSaving(true);
       setErr('');
@@ -114,7 +128,7 @@ export default function DeliveryEdit() {
         lines: lines.map((l) => ({
           item: l.item,
           quantity: Number(l.quantity || 0),
-          packaging: l.packaging || '',
+          packaging: l.packaging === 'case' ? 'case' : 'each',
           // omit unitPrice; let server compute authoritative values
         })),
       };
@@ -187,14 +201,6 @@ export default function DeliveryEdit() {
           const unitPrice = calcUnitPrice(it, l.packaging);
           const lineTotal = Number(l.quantity || 0) * Number(unitPrice || 0);
 
-          // If the computed unit price differs from stored, sync it
-          if (Number(l.unitPrice) !== Number(unitPrice)) {
-            // harmless async state sync on render; avoids stale price on screen
-            setTimeout(() => {
-              updateLine(idx, { unitPrice });
-            }, 0);
-          }
-
           return (
             <div
               key={idx}
@@ -225,9 +231,10 @@ export default function DeliveryEdit() {
                 }}
               >
                 <option value="">Select item…</option>
-                {items.map((it) => (
+                {/* hide retired items, unless this line already uses one */}
+                {items.filter((it) => it.active !== false || it._id === l.item).map((it) => (
                   <option key={it._id} value={it._id}>
-                    {it.name}
+                    {it.name}{it.active === false ? ' (inactive)' : ''}
                   </option>
                 ))}
               </select>
@@ -243,17 +250,22 @@ export default function DeliveryEdit() {
                 placeholder="Qty"
               />
 
-              <input
+              <select
                 className="input"
                 aria-label="Packaging"
-                value={l.packaging}
+                value={l.packaging === 'case' ? 'case' : 'each'}
                 onChange={(e) => {
                   const pkg = e.target.value;
                   const np = calcUnitPrice(it, pkg);
                   updateLine(idx, { packaging: pkg, unitPrice: np });
                 }}
-                placeholder="each or case"
-              />
+              >
+                <option value="each">Each</option>
+                {/* same rule as ItemPicker: cases only for multi-unit packs (keep an existing 'case' line selectable) */}
+                {((Number(it?.unitsPerPack) || 1) > 1 || l.packaging === 'case') && (
+                  <option value="case">Case{it?.unitsPerPack > 1 ? ` (${it.unitsPerPack} units)` : ''}</option>
+                )}
+              </select>
 
               <div style={{ padding: '8px 0', whiteSpace: 'nowrap' }}>@ ${money(unitPrice)}</div>
               <div style={{ padding: '8px 0', whiteSpace: 'nowrap', fontWeight: 600 }}>= ${money(lineTotal)}</div>

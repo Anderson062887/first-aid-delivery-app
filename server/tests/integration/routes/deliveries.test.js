@@ -138,6 +138,31 @@ describe('Deliveries API', () => {
       expect(res.body.total).toBe(95);
     });
 
+    it('should price "each" as pricePerPack / unitsPerPack and "case" as pricePerPack', async () => {
+      const packItem = await createItem(Item, { packaging: 'case', unitsPerPack: 10, pricePerPack: 20 });
+      const payload = {
+        location: location._id.toString(),
+        box: box._id.toString(),
+        lines: [
+          { item: packItem._id.toString(), quantity: 3, packaging: 'each' },
+          { item: packItem._id.toString(), quantity: 2, packaging: 'case' }
+        ]
+      };
+
+      const res = await request(app)
+        .post('/api/deliveries')
+        .set('Cookie', cookie)
+        .send(payload)
+        .expect(201);
+
+      expect(res.body.lines[0].unitPrice).toBe(2);
+      expect(res.body.lines[0].lineTotal).toBe(6);
+      expect(res.body.lines[1].unitPrice).toBe(20);
+      expect(res.body.lines[1].lineTotal).toBe(40);
+      expect(res.body.subtotal).toBe(46);
+      expect(res.body.total).toBe(46);
+    });
+
     it('should reject invalid item ID', async () => {
       const payload = {
         location: location._id.toString(),
@@ -243,6 +268,38 @@ describe('Deliveries API', () => {
       expect(res.body.data[0].location._id.toString()).toBe(location2._id.toString());
     });
 
+    it('should filter by visit, regardless of how many other deliveries exist', async () => {
+      const otherVisit = await createVisit(Visit, user._id, location._id);
+      const line = { item: item._id, quantity: 1, packaging: 'each', unitPrice: 10, lineTotal: 10 };
+      const mine = await Delivery.create({
+        location: location._id, box: box._id, visit: visit._id,
+        lines: [line], subtotal: 10, tax: 0, total: 10,
+        deliveredAt: new Date(Date.now() - 86400000) // older than all the others
+      });
+      // 250 newer deliveries on another visit: more than one page (max limit 200)
+      await Delivery.insertMany(Array.from({ length: 250 }, () => ({
+        location: location._id, box: box._id, visit: otherVisit._id,
+        lines: [line], subtotal: 10, tax: 0, total: 10, deliveredAt: new Date()
+      })));
+
+      const res = await request(app)
+        .get(`/api/deliveries?visit=${visit._id}&limit=200`)
+        .set('Cookie', cookie)
+        .expect(200);
+
+      expect(res.body.pageInfo.total).toBe(1);
+      expect(res.body.data[0]._id).toBe(mine._id.toString());
+    });
+
+    it('should reject an invalid visit id filter', async () => {
+      const res = await request(app)
+        .get('/api/deliveries?visit=not-an-id')
+        .set('Cookie', cookie)
+        .expect(400);
+
+      expect(res.body.error).toBe('Invalid visit id');
+    });
+
     it('should filter by date range', async () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -263,9 +320,10 @@ describe('Deliveries API', () => {
         subtotal: 10, tax: 0, total: 10
       });
 
+      // "today" as a UTC calendar date, so tell the server the dates are UTC days
       const today = new Date().toISOString().split('T')[0];
       const res = await request(app)
-        .get(`/api/deliveries?from=${today}&to=${today}`)
+        .get(`/api/deliveries?from=${today}&to=${today}&tz=UTC`)
         .set('Cookie', cookie)
         .expect(200);
 
@@ -328,12 +386,80 @@ describe('Deliveries API', () => {
       expect(res.body.total).toBe(100);
     });
 
+    it('should price edited lines the same way as creation and update subtotal', async () => {
+      const packItem = await createItem(Item, { packaging: 'case', unitsPerPack: 12, pricePerPack: 30 });
+      const delivery = await Delivery.create({
+        location: location._id,
+        box: box._id,
+        lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 25, lineTotal: 25 }],
+        subtotal: 25, tax: 0, total: 25
+      });
+
+      const res = await request(app)
+        .patch(`/api/deliveries/${delivery._id}`)
+        .set('Cookie', cookie)
+        .send({
+          lines: [
+            { item: packItem._id.toString(), quantity: 5, packaging: 'each' },
+            { item: packItem._id.toString(), quantity: 1, packaging: 'Case' }
+          ]
+        })
+        .expect(200);
+
+      expect(res.body.lines[0].unitPrice).toBe(2.5);
+      expect(res.body.lines[0].lineTotal).toBe(12.5);
+      expect(res.body.lines[1].packaging).toBe('case');
+      expect(res.body.lines[1].lineTotal).toBe(30);
+      expect(res.body.subtotal).toBe(42.5);
+      expect(res.body.total).toBe(42.5);
+    });
+
     it('should return 404 for non-existent delivery', async () => {
       await request(app)
         .patch('/api/deliveries/507f1f77bcf86cd799439011')
         .set('Cookie', cookie)
         .send({ lines: [] })
         .expect(404);
+    });
+
+    it.each([
+      ['unknown packaging', { quantity: 1, packaging: 'box' }, /must be "each" or "case"/],
+      ['zero quantity', { quantity: 0, packaging: 'each' }, /must be greater than 0/],
+      ['fractional "each" quantity', { quantity: 1.5, packaging: 'each' }, /whole number/],
+    ])('should reject %s with a 400 (not a 500)', async (_label, line, message) => {
+      const delivery = await Delivery.create({
+        location: location._id,
+        box: box._id,
+        lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 25, lineTotal: 25 }],
+        subtotal: 25, tax: 0, total: 25
+      });
+
+      const res = await request(app)
+        .patch(`/api/deliveries/${delivery._id}`)
+        .set('Cookie', cookie)
+        .send({ lines: [{ item: item._id.toString(), ...line }] })
+        .expect(400);
+
+      expect(res.body.error).toMatch(message);
+      const unchanged = await Delivery.findById(delivery._id).lean();
+      expect(unchanged.total).toBe(25);
+    });
+
+    it('should reject a malformed item id with a 400', async () => {
+      const delivery = await Delivery.create({
+        location: location._id,
+        box: box._id,
+        lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 25, lineTotal: 25 }],
+        subtotal: 25, tax: 0, total: 25
+      });
+
+      const res = await request(app)
+        .patch(`/api/deliveries/${delivery._id}`)
+        .set('Cookie', cookie)
+        .send({ lines: [{ item: 'nope', quantity: 1, packaging: 'each' }] })
+        .expect(400);
+
+      expect(res.body.error).toBe('Invalid item in lines');
     });
 
     it('should reject invalid lines format', async () => {

@@ -1,15 +1,40 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-export function authRequired(req, res, next) {
+/**
+ * Resolve the logged-in user from the auth cookie.
+ * The token only identifies the user; name, roles and active status are read
+ * from the database on every request, so deactivating a user or changing
+ * their roles takes effect immediately (not when the 7-day token expires).
+ * Returns null when there is no valid session.
+ */
+export async function userFromToken(token) {
+  if (!token) return null;
+  let payload;
   try {
-    const token = req.cookies?.token;
-    if (!token) return res.status(401).json({ error: 'Auth required' });
-
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { _id, name, email, roles }
-    next();
+    payload = jwt.verify(token, process.env.JWT_SECRET);
   } catch {
-    return res.status(401).json({ error: 'Invalid/expired token' });
+    return null;
+  }
+  const user = await User.findById(payload?._id).select('name email roles active').lean();
+  if (!user || user.active === false) return null;
+  return { _id: String(user._id), name: user.name, email: user.email, roles: user.roles || [] };
+}
+
+export async function authRequired(req, res, next) {
+  try {
+    if (!req.cookies?.token) return res.status(401).json({ error: 'Auth required' });
+
+    const user = await userFromToken(req.cookies.token);
+    if (!user) {
+      res.clearCookie('token', { path: '/' });
+      return res.status(401).json({ error: 'Session expired or account disabled. Please log in again.' });
+    }
+    req.user = user; // { _id, name, email, roles }
+    next();
+  } catch (e) {
+    console.error('Auth check failed:', e);
+    return res.status(500).json({ error: 'Auth check failed' });
   }
 }
 
@@ -20,4 +45,8 @@ export function requireRoles(...allowed) {
     if (!ok) return res.status(403).json({ error: 'Forbidden' });
     next();
   };
+}
+
+export function isAdmin(user) {
+  return (user?.roles || []).includes('admin');
 }

@@ -1,11 +1,12 @@
-import { isOnline, enqueue } from './offline';
+import { isOnline, enqueue, getCsrfToken } from './offline';
 
 const API = '/api';
 
-// Get CSRF token from cookie
-function getCsrfToken() {
-  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : '';
+// The user's IANA timezone, so the server treats "from/to" dates as the user's
+// calendar days (e.g. "America/New_York").
+export function userTimeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }
+  catch { return ''; }
 }
 
 // Get headers with CSRF token for state-changing requests
@@ -53,43 +54,42 @@ function invalidateBoxesCache(locationId) {
 }
 
 
-async function postWithOffline(path, body) {
-  if (isOnline()) {
-    const r = await fetch(path, {
-      method: 'POST',
-      headers: getHeaders('POST'),
+// Sends the request, or queues it for later when there is no connection.
+// Resolves with { _offlineQueued: true } only when the request was actually
+// queued. Server errors (4xx/5xx) are NOT queued: they reject with the
+// server's error message so the caller can show it.
+async function sendWithOffline(method, path, body) {
+  if (!isOnline()) {
+    enqueue({ path, method, body });
+    return { _offlineQueued: true };
+  }
+
+  let r;
+  try {
+    r = await fetch(path, {
+      method,
+      headers: getHeaders(method),
       credentials: 'include',
       body: JSON.stringify(body)
     });
-    if (!r.ok) {
-      const txt = await r.text().catch(()=> '');
-      throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
-    }
-    return r.json();
-  } else {
-    enqueue({ path, method:'POST', body });
+  } catch {
+    // Network failure while the browser still reports "online" (flaky signal)
+    enqueue({ path, method, body });
     return { _offlineQueued: true };
   }
+
+  if (!r.ok) {
+    let msg = `Request failed (${r.status})`;
+    try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
+    const err = new Error(msg);
+    err.status = r.status;
+    throw err;
+  }
+  return r.json().catch(() => ({}));
 }
 
-async function patchWithOffline(path, body) {
-  if (isOnline()) {
-    const r = await fetch(path, {
-      method: 'PATCH',
-      headers: getHeaders('PATCH'),
-      credentials: 'include',
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) {
-      const txt = await r.text().catch(()=> '');
-      throw new Error(`Request failed (${r.status}): ${txt.slice(0,160)}`);
-    }
-    return r.json().catch(()=> ({}));
-  } else {
-    enqueue({ path, method:'PATCH', body });
-    return { _offlineQueued: true };
-  }
-}
+const postWithOffline = (path, body) => sendWithOffline('POST', path, body);
+const patchWithOffline = (path, body) => sendWithOffline('PATCH', path, body);
 
 
 
@@ -211,6 +211,7 @@ export const api = {
     if (filters.location) params.set('location', filters.location);
     if (filters.from)     params.set('from', filters.from); // YYYY-MM-DD
     if (filters.to)       params.set('to', filters.to);
+    if (filters.from || filters.to) params.set('tz', userTimeZone());
     if (filters.repId)    params.set('repId', filters.repId);
     else if (filters.repName) params.set('repName', filters.repName);
 
@@ -253,7 +254,7 @@ export const usersApi = {
   create: (data) => fetch('/api/users', {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders('POST'),
     body: JSON.stringify(data)
   }).then(async r => {
     if (!r.ok) throw new Error((await r.json()).error || 'User create failed');
@@ -264,12 +265,12 @@ export const usersApi = {
     const res = await fetch(`/api/users/${id}`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders('PATCH'),
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`User update failed (${res.status}): ${text.slice(0, 120)}`);
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `User update failed (${res.status})`);
     }
     return res.json().catch(() => ({}));
   },
@@ -308,7 +309,7 @@ export const locationsApi = {
     const res = await fetch(`/api/locations/${id}`, {
       method: 'PUT',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders('PUT'),
       body: JSON.stringify(data)
     });
     if (!res.ok) {
@@ -321,7 +322,7 @@ export const locationsApi = {
   create: (data) => fetch('/api/locations', {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders('POST'),
     body: JSON.stringify(data)
   }).then(async r => {
     if (!r.ok) throw new Error((await r.json()).error || 'Location create failed');
@@ -346,9 +347,17 @@ export const locationsApi = {
 //////////////////////
 
 export const visitApi = {
-  // Start a visit (only needs location; rep is inferred from logged-in user)
-  start: (locationId) =>
-    postWithOffline('/api/visits', { location: locationId }),
+  // Start a visit (only needs location; rep is inferred from logged-in user).
+  // Not queued offline: callers need the new visit's _id to open it.
+  start: async (locationId) => {
+    if (!isOnline()) throw new Error('You are offline. Starting a visit needs a connection.');
+    try {
+      return await http('/visits', { method: 'POST', body: JSON.stringify({ location: locationId }) });
+    } catch (e) {
+      if (e instanceof TypeError) throw new Error('No connection. Starting a visit needs a connection.');
+      throw e;
+    }
+  },
 
   // Fetch a visit
   get: (id) => fetch(`/api/visits/${id}?t=${Date.now()}`, {
@@ -380,6 +389,7 @@ export const reportsApi = {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (from || to) params.set('tz', userTimeZone());
     if (location) params.set('location', location);
     params.set('limit', String(limit));
     const r = await fetch(`/api/reports/items-usage?${params.toString()}`, { credentials:'include' });
@@ -390,6 +400,7 @@ export const reportsApi = {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (from || to) params.set('tz', userTimeZone());
     if (location) params.set('location', location);
     const r = await fetch(`/api/reports/rep-productivity?${params.toString()}`, { credentials:'include' });
     if (!r.ok) throw new Error('Failed to load rep productivity');
@@ -399,6 +410,7 @@ export const reportsApi = {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (from || to) params.set('tz', userTimeZone());
     if (location) params.set('location', location);
     const r = await fetch(`/api/reports/outcomes?${params.toString()}`, { credentials:'include' });
     if (!r.ok) throw new Error('Failed to load outcomes data');

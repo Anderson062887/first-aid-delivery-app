@@ -2,6 +2,24 @@
 
 const KEY = 'offlineQueue:v1';
 
+// Read the CSRF token the server sets in the csrf_token cookie
+export function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// The csrf_token cookie expires after 24h, which can happen during a long
+// offline stretch. Any API request makes the server issue a fresh one.
+async function ensureCsrfToken() {
+  if (getCsrfToken()) return getCsrfToken();
+  try {
+    await fetch('/api/auth/me', { credentials: 'include' });
+  } catch {
+    // still offline / unreachable; the jobs below will fail and stay queued
+  }
+  return getCsrfToken();
+}
+
 export function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
@@ -50,12 +68,13 @@ export async function flushQueue() {
 
   const remaining = [];
   let done = 0;
+  const csrfToken = await ensureCsrfToken();
 
   for (const job of q) {
     try {
       const res = await fetch(job.path, {
         method: job.method || 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify(job.body),
         credentials: 'include'
       });

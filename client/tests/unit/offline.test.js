@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isOnline, enqueue, flushQueue } from '../../src/offline.js';
 
 describe('offline.js', () => {
@@ -64,6 +64,56 @@ describe('offline.js', () => {
   });
 
   describe('flushQueue', () => {
+    const clearCsrfCookie = () => {
+      document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    };
+
+    beforeEach(() => {
+      document.cookie = 'csrf_token=tok123; path=/';
+    });
+
+    afterEach(clearCsrfCookie);
+
+    it('should send the CSRF token header with queued requests', async () => {
+      global.fetch.mockResolvedValue({ ok: true });
+
+      localStorage.setItem('offlineQueue:v1', JSON.stringify([
+        { id: '1', path: '/api/deliveries', method: 'POST', body: {} }
+      ]));
+
+      await flushQueue();
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith('/api/deliveries', expect.objectContaining({
+        headers: expect.objectContaining({ 'x-csrf-token': 'tok123' })
+      }));
+    });
+
+    it('should fetch a fresh CSRF cookie first when it has expired', async () => {
+      clearCsrfCookie();
+      global.fetch
+        .mockImplementationOnce(async () => {
+          // server sets a new csrf_token cookie on any request
+          document.cookie = 'csrf_token=fresh456; path=/';
+          return { ok: true };
+        })
+        .mockResolvedValueOnce({ ok: true });
+
+      localStorage.setItem('offlineQueue:v1', JSON.stringify([
+        { id: '1', path: '/api/deliveries', method: 'POST', body: {} }
+      ]));
+
+      const result = await flushQueue();
+
+      expect(result).toEqual({ done: 1, left: 0 });
+      expect(global.fetch).toHaveBeenNthCalledWith(1, '/api/auth/me', expect.objectContaining({
+        credentials: 'include'
+      }));
+      expect(global.fetch).toHaveBeenNthCalledWith(2, '/api/deliveries', expect.objectContaining({
+        headers: expect.objectContaining({ 'x-csrf-token': 'fresh456' })
+      }));
+    });
+
     it('should return immediately if queue is empty', async () => {
       const result = await flushQueue();
 

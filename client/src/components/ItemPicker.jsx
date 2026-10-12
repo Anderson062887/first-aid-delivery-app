@@ -23,7 +23,8 @@ export default function ItemPicker({ onAdd }) {
       try {
         setLoading(true); setErr('');
         const data = await api.items.list();
-        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+        // Retired (inactive) items can't be added to new deliveries
+        if (!cancelled) setItems((Array.isArray(data) ? data : []).filter(i => i.active !== false));
       } catch (e) {
         if (!cancelled) setErr(String(e?.message || e));
       } finally {

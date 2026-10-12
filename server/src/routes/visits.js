@@ -2,8 +2,30 @@ import { Router } from 'express';
 import Visit from '../models/Visit.js';
 import Box from '../models/Box.js';
 import Delivery from '../models/Delivery.js';
+import mongoose from 'mongoose';
+import { isAdmin } from '../middleware/auth.js';
+import { dayRange } from '../utils/dates.js';
 
 const r = Router();
+
+// Load a visit the current user may change: their own, or any visit for admins.
+// Sends the error response and returns null otherwise.
+async function loadVisitForChange(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    res.status(404).json({ error: 'Visit not found' });
+    return null;
+  }
+  const v = await Visit.findById(req.params.id);
+  if (!v) {
+    res.status(404).json({ error: 'Visit not found' });
+    return null;
+  }
+  if (!isAdmin(req.user) && String(v.rep) !== String(req.user?._id)) {
+    res.status(403).json({ error: 'Only the visit\'s rep or an admin can change this visit' });
+    return null;
+  }
+  return v;
+}
 
 /**
  * GET /api/visits
@@ -51,26 +73,8 @@ r.get('/', async (req, res) => {
 
     // Date filter: use submittedAt if present, else startedAt/createdAt
     // We'll filter on createdAt as a conservative baseline.
-    const parseDateStart = (d) => {
-      const dt = new Date(d);
-      if (isNaN(dt)) return null;
-      dt.setHours(0, 0, 0, 0);
-      return dt;
-    };
-    const parseDateEnd = (d) => {
-      const dt = new Date(d);
-      if (isNaN(dt)) return null;
-      dt.setHours(23, 59, 59, 999);
-      return dt;
-    };
-
-    const fromDt = from ? parseDateStart(from) : null;
-    const toDt   = to   ? parseDateEnd(to)   : null;
-    if (fromDt || toDt) {
-      q.createdAt = {};
-      if (fromDt) q.createdAt.$gte = fromDt;
-      if (toDt)   q.createdAt.$lte = toDt;
-    }
+    const createdRange = dayRange(from, to, req.query.tz);
+    if (createdRange) q.createdAt = createdRange;
 
     const rows = await Visit.find(q)
       .sort({ submittedAt: -1, startedAt: -1, createdAt: -1, _id: -1 })
@@ -176,8 +180,8 @@ r.get('/:id', async (req,res)=>{
 });
 
 r.patch('/:id/note', async (req, res) => {
-  const v = await Visit.findById(req.params.id);
-  if (!v) return res.sendStatus(404);
+  const v = await loadVisitForChange(req, res);
+  if (!v) return;
   v.note = String(req.body?.note || '');
   await v.save();
   res.json({ ok: true, visit: v });
@@ -186,8 +190,8 @@ r.patch('/:id/note', async (req, res) => {
 // General update for visit (note and/or outcome)
 r.patch('/:id', async (req, res) => {
   try {
-    const v = await Visit.findById(req.params.id);
-    if (!v) return res.status(404).json({ error: 'Visit not found' });
+    const v = await loadVisitForChange(req, res);
+    if (!v) return;
 
     const { note, outcome } = req.body || {};
 
@@ -214,8 +218,8 @@ r.patch('/:id', async (req, res) => {
 // Submit only if every box has at least one delivery for this visit
 r.post('/:id/submit', async (req,res)=>{
   const { outcome = 'completed', note } = req.body || {};
-  const v = await Visit.findById(req.params.id);
-  if(!v) return res.sendStatus(404);
+  const v = await loadVisitForChange(req, res);
+  if (!v) return;
   if(v.status === 'submitted') return res.json(v);
 
   if (note !== undefined) v.note = String(note || '');

@@ -1,6 +1,6 @@
 // client/src/pages/Reports.jsx
 import { useEffect, useState } from 'react';
-import { api, usersApi } from '../api';
+import { api, usersApi, userTimeZone } from '../api';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function Reports(){
@@ -33,6 +33,7 @@ export default function Reports(){
 
   function qs(base, params) {
     const u = new URLSearchParams();
+    if (params.from || params.to) u.set('tz', userTimeZone());
     Object.entries(params).forEach(([k,v]) => {
       if (v !== undefined && v !== null && v !== '') u.set(k, v);
     });

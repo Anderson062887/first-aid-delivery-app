@@ -47,7 +47,7 @@ export default function VisitPrint() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/deliveries?visit=${encodeURIComponent(visitId)}&limit=1000&page=1`, {
+        const r = await fetch(`/api/deliveries?visit=${encodeURIComponent(visitId)}&limit=200&page=1`, {
           headers: { 'Cache-Control': 'no-cache' }
         });
         if (!r.ok) throw new Error('Failed to load deliveries');

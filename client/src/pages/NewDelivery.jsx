@@ -221,20 +221,22 @@ export default function NewDelivery(){
 
     setSubmitting(true);
     try {
-      await api.deliveries.create(payload);
-      clearDraft(); // Clear draft on successful submission
-      toast.success('Delivery recorded successfully');
-      if (visitId) nav(`/visits/${visitId}?done=delivery`);
-      else nav(`/?done=delivery`);
-    } catch {
-      // Treat as queued/temporary failure
-      setErr('No connection. Saved locally and will sync when back online.');
-      toast.info('Saved offline - will sync when back online');
+      const result = await api.deliveries.create(payload);
       clearDraft();
-      setTimeout(() => {
+      if (result?._offlineQueued) {
+        toast.info('No connection. Saved on this device - will sync when back online');
         if (visitId) nav(`/visits/${visitId}?queued=1`);
         else nav(`/?queued=1`);
-      }, 1500);
+      } else {
+        toast.success('Delivery recorded successfully');
+        if (visitId) nav(`/visits/${visitId}?done=delivery`);
+        else nav(`/?done=delivery`);
+      }
+    } catch (e) {
+      // The server rejected it: nothing was saved or queued. Keep the form
+      // (and draft) so the rep can fix the problem and try again.
+      setErr(`Delivery was NOT saved: ${e?.message || 'unknown error'}`);
+      toast.error('Delivery was not saved');
     } finally {
       setSubmitting(false);
     }

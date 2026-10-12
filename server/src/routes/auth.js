@@ -3,34 +3,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimit.js';
-import { authRequired, requireRoles } from '../middleware/auth.js';
+import { authRequired, requireRoles, userFromToken } from '../middleware/auth.js';
+import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
 
 const r = Router();
-
-// Valid role values
-const VALID_ROLES = ['rep', 'admin'];
-
-function validateRoles(roles) {
-  if (!Array.isArray(roles)) return false;
-  return roles.every(role => VALID_ROLES.includes(role));
-}
-
-// Password validation: min 8 chars, at least one uppercase, one lowercase, one number
-function validatePassword(password) {
-  if (!password || password.length < 8) {
-    return 'Password must be at least 8 characters';
-  }
-  if (!/[a-z]/.test(password)) {
-    return 'Password must contain at least one lowercase letter';
-  }
-  if (!/[A-Z]/.test(password)) {
-    return 'Password must contain at least one uppercase letter';
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'Password must contain at least one number';
-  }
-  return null; // valid
-}
 
 // helper to sign cookie
 function setAuthCookie(res, user) {
@@ -74,10 +50,10 @@ r.post('/logout', (req, res) => {
 // GET /api/auth/me
 r.get('/me', async (req, res) => {
   try {
-    const token = req.cookies?.token;
-    if (!token) return res.json(null);
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    res.json(payload);
+    // Fresh from the DB: reflects role changes and deactivation right away
+    const user = await userFromToken(req.cookies?.token);
+    if (!user && req.cookies?.token) res.clearCookie('token', { path: '/' });
+    res.json(user);
   } catch {
     res.json(null);
   }

@@ -1,15 +1,18 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Delivery from '../models/Delivery.js';
 import Item from '../models/Item.js';
 import Visit from '../models/Visit.js';
+import Box from '../models/Box.js';
+import { isAdmin } from '../middleware/auth.js';
+import { dayRange } from '../utils/dates.js';
 
-function unitPriceFor(item, packaging = '') {
-  const p = String(packaging).toLowerCase();
-  // If packaging mentions case/box/pack, use pricePerPack; else use each price
-  if (p.includes('case') || p.includes('box') || p.includes('pack')) {
-    return Number(item.pricePerPack ?? item.price ?? 0);
-  }
-  return Number(item.price ?? item.pricePerPack ?? 0);
+// Must match the client (ItemPicker/Cart): a case costs pricePerPack,
+// a single unit costs pricePerPack / unitsPerPack.
+function unitPriceFor(item, packaging) {
+  const packPrice = Number(item.pricePerPack);
+  const unitsPerPack = Number(item.unitsPerPack) || 1;
+  return packaging === 'case' ? packPrice : packPrice / unitsPerPack;
 }
 
 
@@ -18,7 +21,7 @@ const r = Router();
 
 r.get('/', async (req, res) => {
   try {
-    const { location, from, to, repId, repName } = req.query;
+    const { location, from, to, repId, repName, visit } = req.query;
     const page = Math.max(1, parseInt(req.query.page ?? '1', 10));
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit ?? '50', 10)));
 
@@ -27,27 +30,17 @@ r.get('/', async (req, res) => {
     // Filter by location
     if (location) query.location = location;
 
-    // Filter by date range
-    const parseDateStart = (d) => {
-      const dt = new Date(d);
-      if (isNaN(dt)) return null;
-      dt.setHours(0,0,0,0);
-      return dt;
-    };
-    const parseDateEnd = (d) => {
-      const dt = new Date(d);
-      if (isNaN(dt)) return null;
-      dt.setHours(23,59,59,999);
-      return dt;
-    };
-
-    const fromDt = from ? parseDateStart(from) : null;
-    const toDt   = to   ? parseDateEnd(to)   : null;
-    if (fromDt || toDt) {
-      query.deliveredAt = {};
-      if (fromDt) query.deliveredAt.$gte = fromDt;
-      if (toDt)   query.deliveredAt.$lte = toDt;
+    // Filter by visit
+    if (visit) {
+      if (!mongoose.isValidObjectId(visit)) {
+        return res.status(400).json({ error: 'Invalid visit id' });
+      }
+      query.visit = visit;
     }
+
+    // Filter by date range (calendar days in the user's timezone)
+    const deliveredRange = dayRange(from, to, req.query.tz);
+    if (deliveredRange) query.deliveredAt = deliveredRange;
 
     // Filter by rep
     if (repId) {
@@ -59,7 +52,7 @@ r.get('/', async (req, res) => {
           pageInfo: { page, limit, total: 0, hasMore: false }
         });
       }
-      query.visit = { $in: vIds };
+      query.visit = query.visit ? { $eq: query.visit, $in: vIds } : { $in: vIds };
     } else if (repName) {
       query.repName = { $regex: repName, $options: 'i' };
     }
@@ -90,18 +83,40 @@ r.post('/', async (req, res) => {
   try {
     const { deliveredAt, location, box, visit, lines: rawLines } = req.body || {};
 
-    // --- rep name: from visit.rep if provided, otherwise from the logged-in user ---
-    let repName = req.user?.name || '';
-    if (visit) {
-      const vdoc = await Visit.findById(visit).populate('rep', 'name').lean();
-      if (vdoc?.rep?.name) repName = vdoc.rep.name;
-    }
-
     // --- basic validation ---
     if (!location) return res.status(400).json({ error: 'location is required' });
     if (!box)      return res.status(400).json({ error: 'box is required' });
     if (!Array.isArray(rawLines) || rawLines.length === 0) {
       return res.status(400).json({ error: 'lines must have at least one item' });
+    }
+    for (const [name, id] of [['location', location], ['box', box], ['visit', visit]]) {
+      if (id && !mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ error: `Invalid ${name} id` });
+      }
+    }
+
+    // --- the box must be one of this location's boxes ---
+    const boxDoc = await Box.findById(box).lean();
+    if (!boxDoc) return res.status(400).json({ error: 'Box not found' });
+    if (String(boxDoc.location) !== String(location)) {
+      return res.status(400).json({ error: 'That box does not belong to this location' });
+    }
+
+    // --- rep name: from visit.rep if provided, otherwise from the logged-in user ---
+    let repName = req.user?.name || '';
+    if (visit) {
+      const vdoc = await Visit.findById(visit).populate('rep', 'name').lean();
+      if (!vdoc) return res.status(400).json({ error: 'Visit not found' });
+      if (!isAdmin(req.user) && String(vdoc.rep?._id) !== String(req.user?._id)) {
+        return res.status(403).json({ error: 'You can only add deliveries to your own visits' });
+      }
+      if (vdoc.status === 'submitted') {
+        return res.status(409).json({ error: 'This visit was already submitted; deliveries can no longer be added' });
+      }
+      if (String(vdoc.location) !== String(location)) {
+        return res.status(400).json({ error: 'The visit is for a different location' });
+      }
+      if (vdoc.rep?.name) repName = vdoc.rep.name;
     }
 
     // --- Validate all items exist upfront (prevents race condition) ---
@@ -143,7 +158,7 @@ r.post('/', async (req, res) => {
       }
 
       // Validate price is a valid positive number
-      const unitPrice = Number(it.pricePerPack);
+      const unitPrice = unitPriceFor(it, packaging);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         return res.status(400).json({ error: `Invalid price for item: ${it.name || l.item}` });
       }
@@ -312,10 +327,22 @@ r.get('/:id', async (req, res) => {
 // PATCH /api/deliveries/:id
 r.patch('/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Delivery not found' });
     const delivery = await Delivery.findById(req.params.id);
     if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
 
-    if (!Array.isArray(req.body.lines)) {
+    // Admins can edit any delivery; a rep only their own, while the visit is still open
+    if (!isAdmin(req.user)) {
+      const v = delivery.visit ? await Visit.findById(delivery.visit).lean() : null;
+      if (!v || String(v.rep) !== String(req.user?._id)) {
+        return res.status(403).json({ error: 'Only an admin or the visit\'s rep can edit this delivery' });
+      }
+      if (v.status === 'submitted') {
+        return res.status(403).json({ error: 'This visit was already submitted. Ask an admin to make changes.' });
+      }
+    }
+
+    if (!Array.isArray(req.body?.lines)) {
       return res.status(400).json({ error: 'lines must be an array' });
     }
 
@@ -323,14 +350,27 @@ r.patch('/:id', async (req, res) => {
     const newLines = [];
     for (const raw of req.body.lines) {
       if (!raw?.item) return res.status(400).json({ error: 'Each line must include item' });
+      if (!mongoose.isValidObjectId(raw.item)) return res.status(400).json({ error: 'Invalid item in lines' });
 
       const item = await Item.findById(raw.item).lean();
       if (!item) return res.status(400).json({ error: 'Invalid item in lines' });
 
       const quantity = Number(raw.quantity ?? 0);
-      const packaging = String(raw.packaging ?? '');
+      const packaging = String(raw.packaging || item.packaging || 'each').toLowerCase().trim();
+
+      // Same rules as creating a delivery
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ error: `Quantity for ${item.name} must be greater than 0` });
+      }
+      if (!['each', 'case'].includes(packaging)) {
+        return res.status(400).json({ error: `Packaging for ${item.name} must be "each" or "case"` });
+      }
+      if (packaging === 'each' && !Number.isInteger(quantity)) {
+        return res.status(400).json({ error: `Quantity for ${item.name} (each) must be a whole number` });
+      }
+
       const unitPrice = unitPriceFor(item, packaging);
-      const lineTotal = Number((unitPrice * quantity).toFixed(2));
+      const lineTotal = Math.round(unitPrice * quantity * 100) / 100;
 
       newLines.push({
         item: item._id,
@@ -349,7 +389,8 @@ r.patch('/:id', async (req, res) => {
 
     // Apply changes
     delivery.lines = newLines;
-    delivery.total = Number(total.toFixed(2));
+    delivery.subtotal = Math.round(total * 100) / 100;
+    delivery.total = Math.round((delivery.subtotal + (delivery.tax || 0)) * 100) / 100;
     await delivery.save();
 
     // Optional: write audit log if you created ChangeLog model

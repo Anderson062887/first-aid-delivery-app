@@ -27,7 +27,8 @@ export default function Visit(){
   const [deliveredIds, setDeliveredIds] = useState(new Set());
   const [outcome, setOutcome] = useState('');
   const [note, setNote] = useState('');
-  const [err, setErr] = useState('');
+  const [loadErr, setLoadErr] = useState(''); // visit could not be loaded: nothing to show
+  const [err, setErr] = useState('');         // submit/validation problem: shown inline
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -39,7 +40,7 @@ export default function Visit(){
     let cancelled = false;
     (async () => {
       try {
-        setLoading(true); setErr('');
+        setLoading(true); setLoadErr('');
 
         const data = await visitApi.get(id);
         const v = data?.visit || data;
@@ -71,7 +72,7 @@ export default function Visit(){
           .then(list => cacheItems(Array.isArray(list) ? list : []))
           .catch(()=>{});
       } catch (e) {
-        if (!cancelled) setErr(String(e?.message || e));
+        if (!cancelled) setLoadErr(String(e?.message || e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,7 +85,7 @@ export default function Visit(){
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/deliveries?visit=${encodeURIComponent(id)}&limit=1000&page=1`, {
+        const r = await fetch(`/api/deliveries?visit=${encodeURIComponent(id)}&limit=200&page=1`, {
           credentials: 'include',
           headers: { 'Cache-Control': 'no-cache' }
         });
@@ -119,6 +120,7 @@ export default function Visit(){
   }, [allCovered, outcome, readonly]);
 
   function handleSubmitClick() {
+    setErr('');
     if (outcome === 'completed' && !allCovered) {
       setErr('To submit as completed, you must refill all boxes.')
       return;
@@ -131,27 +133,21 @@ export default function Visit(){
     try{
       setSaving(true);
       const payload = { outcome: outcome || undefined, note };
-      await visitApi.submit(id, payload);
+      const result = await visitApi.submit(id, payload);
 
       setVisit(v => v ? { ...v, outcome: payload.outcome || v.outcome, note, submittedAt: new Date().toISOString() } : v);
 
-      navigate(`/?done=visit`);
+      navigate(result?._offlineQueued ? '/?queued=1' : '/?done=visit');
     }catch(e){
       console.error('Submit visit failed:', e);
-      let msg = e?.message || 'Failed to submit visit. Please try again.';
-      if (msg.includes('outcome')) {
-        msg = 'Please select an outcome before submitting.';
-      } else if (msg.includes('lines') || msg.includes('boxes')) {
-        msg = 'Please refill at least one box before submitting.';
-      }
-      setErr(msg);
-      setTimeout(() => setErr(''), 3000);
+      // Show the server's reason (e.g. which boxes are missing); stays until the next attempt
+      setErr(`Visit was not submitted: ${e?.message || 'please try again.'}`);
     }finally{
       setSaving(false);
     }
   }
 
-  if (err) return <div className="card" style={{ color:'red' }}>{err}</div>;
+  if (loadErr) return <div className="card" style={{ color:'red' }}>{loadErr}</div>;
   if (loading || !visit) return <div className="card">Loading…</div>;
 
   const repName   = visit.rep?.name || visit.repName || '—';

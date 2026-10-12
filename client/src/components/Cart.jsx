@@ -37,7 +37,8 @@ export default function Cart({ lines = [], items = [], onRemove }) {
     }
 
     const qty       = safeNum(l.quantity, 0);
-    const lineTotal = safeNum(l.lineTotal, unitPrice * qty);
+    // Round per line to cents, the same way the server does
+    const lineTotal = safeNum(l.lineTotal, Math.round(unitPrice * qty * 100) / 100);
 
     return {
       idx,

@@ -1,6 +1,7 @@
 // server/src/routes/exports.js
 import { Router } from 'express';
 import Delivery from '../models/Delivery.js';
+import { dayRange } from '../utils/dates.js';
 
 const r = Router();
 
@@ -19,33 +20,15 @@ function csvEscape(x) {
   return s;
 }
 
-// parse YYYY-MM-DD to day bounds
-function parseDateStart(d) {
-  const dt = new Date(d);
-  if (isNaN(dt)) return null;
-  dt.setHours(0,0,0,0);
-  return dt;
-}
-function parseDateEnd(d) {
-  const dt = new Date(d);
-  if (isNaN(dt)) return null;
-  dt.setHours(23,59,59,999);
-  return dt;
-}
 
 /**
  * Helper: load deliveries with common filters + populates, then optional repId filter.
  */
 async function loadDeliveriesWithFilters(qs) {
-  const { from, to, location, repId, repName } = qs || {};
+  const { from, to, location, repId, repName, tz } = qs || {};
   const query = {};
-  const fromDt = from ? parseDateStart(from) : null;
-  const toDt   = to   ? parseDateEnd(to)   : null;
-  if (fromDt || toDt) {
-    query.deliveredAt = {};
-    if (fromDt) query.deliveredAt.$gte = fromDt;
-    if (toDt)   query.deliveredAt.$lte = toDt;
-  }
+  const deliveredRange = dayRange(from, to, tz);
+  if (deliveredRange) query.deliveredAt = deliveredRange;
   if (location) query.location = location;
   if (repName)  query.repName = { $regex: repName, $options: 'i' };
 
