@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { getQueueCount } from '../offline';
 
 function RoleNav() {
   const { user } = useAuth();
@@ -34,6 +35,22 @@ export default function NavBar() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
+  const navigate = useNavigate();
+
+  async function onLogout() {
+    const pending = getQueueCount();
+    if (pending > 0 && !window.confirm(
+      `${pending} change${pending === 1 ? '' : 's'} on this device haven't synced yet. ` +
+      `Logging out deletes them. Press Cancel to stay and sync first.`
+    )) return;
+    try {
+      await logout();
+      // Plain /login: the next person should start at home, not on this user's page
+      navigate('/login', { replace: true });
+    } catch {
+      window.alert("Couldn't reach the server to log out. Try again when you're online.");
+    }
+  }
 
   // Close mobile menu on route change
   useEffect(() => { setOpen(false); }, [loc.pathname]);
@@ -63,7 +80,7 @@ export default function NavBar() {
             </nav>
 
             <span className="user-greet">Hi, {user.name}</span>
-            <button className="btn logout" onClick={logout}>Logout</button>
+            <button className="btn logout" onClick={onLogout}>Logout</button>
           </>
         ) : (
           loc.pathname !== '/login' && <NavLink to="/login" className="btn">Login</NavLink>

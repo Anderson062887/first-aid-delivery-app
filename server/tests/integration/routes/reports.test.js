@@ -94,4 +94,30 @@ describe('Reports API', () => {
       });
     });
   });
+
+  describe('reps only see their own numbers', () => {
+    it('limits every report to the logged-in rep; admins see everyone', async () => {
+      // A visit-less delivery recorded under Bob's name counts for Bob
+      await Delivery.create({
+        repName: 'Bob', location: location._id, box: boxes[0]._id,
+        lines: [{ item: item._id, quantity: 2, packaging: 'each', unitPrice: 7, lineTotal: 14 }],
+        subtotal: 14, tax: 0, total: 14
+      });
+      const bobCookie = authCookie(bob);
+
+      const prod = await request(app).get('/api/reports/rep-productivity').set('Cookie', bobCookie).expect(200);
+      expect(prod.body.rows.map(r => r.repName)).toEqual(['Bob']);
+      expect(prod.body.rows[0]).toMatchObject({ total: 14, deliveries: 1, no_access: 1, skipped: 1 });
+
+      const outcomes = await request(app).get('/api/reports/outcomes').set('Cookie', bobCookie).expect(200);
+      expect(outcomes.body.counts).toEqual({ completed: 0, partial: 0, no_access: 1, skipped: 1, other: 0 });
+
+      const items = await request(app).get('/api/reports/items-usage').set('Cookie', bobCookie).expect(200);
+      expect(items.body.rows).toEqual([expect.objectContaining({ quantity: 2, amount: 14 })]);
+
+      // Alice is an admin: everyone, including Bob
+      const all = await request(app).get('/api/reports/rep-productivity').set('Cookie', cookie).expect(200);
+      expect(all.body.rows.map(r => r.repName).sort()).toEqual(['Alice', 'Bob']);
+    });
+  });
 });

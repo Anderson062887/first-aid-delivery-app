@@ -15,7 +15,10 @@ export default function Login() {
     setErr('');
     try {
       await login(email, password);
-      const to = loc.state?.from || '/';
+      // Only same-app paths (never "//host" or a full URL)
+      const from = loc.state?.from;
+      const to = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && from !== '/login'
+        ? from : '/';
       nav(to, { replace:true });
     } catch (e) {
       setErr(String(e?.message || e));

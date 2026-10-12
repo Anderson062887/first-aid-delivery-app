@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isOnline, enqueue, flushQueue } from '../../src/offline.js';
+import { isOnline, enqueue, flushQueue, clearUserData, getQueueCount } from '../../src/offline.js';
+import { clear as clearIdb } from 'idb-keyval';
 
 describe('offline.js', () => {
   beforeEach(() => {
@@ -209,6 +210,31 @@ describe('offline.js', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/test', expect.objectContaining({
         method: 'PATCH'
       }));
+    });
+  });
+
+  describe('clearUserData (logout)', () => {
+    it("removes the queue, cached lists, drafts and the service worker's API caches", async () => {
+      enqueue({ path: '/api/deliveries', method: 'POST', body: {} });
+      localStorage.setItem('cache:items:v1', '[]');
+      localStorage.setItem('cache:boxes:l1:v1', '[]');
+      localStorage.setItem('selectedRepId', 'u1');
+      localStorage.setItem('unrelated', 'keep');
+      sessionStorage.setItem('delivery_draft', '{}');
+      const deleted = [];
+      globalThis.caches = {
+        keys: vi.fn().mockResolvedValue(['api-items', 'api-visit', 'workbox-precache-v2']),
+        delete: vi.fn(async (n) => { deleted.push(n); return true; })
+      };
+
+      await clearUserData();
+
+      expect(getQueueCount()).toBe(0);
+      expect(Object.keys(localStorage.store).sort()).toEqual(['offlineQueue:v1', 'unrelated']);
+      expect(sessionStorage.getItem('delivery_draft')).toBeNull();
+      expect(clearIdb).toHaveBeenCalled();
+      expect(deleted).toEqual(['api-items', 'api-visit']); // app shell cache stays
+      delete globalThis.caches;
     });
   });
 });

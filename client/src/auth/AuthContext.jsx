@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { authApi } from '../api';
+import { clearUserData } from '../offline';
 
 const AuthCtx = createContext(null);
 
@@ -24,8 +25,11 @@ export function AuthProvider({ children }) {
     const u = await authApi.login(email, password);
     setUser(u);
   }
+  // Throws if the server can't be reached: the session cookie is httpOnly, so
+  // only the server can end it. Local data is cleared only once it has.
   async function logout() {
     await authApi.logout();
+    await clearUserData();
     setUser(null);
   }
 

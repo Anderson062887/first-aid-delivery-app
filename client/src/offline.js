@@ -1,3 +1,4 @@
+import { clear as clearIdb } from 'idb-keyval';
 // client/src/offline.js
 
 const KEY = 'offlineQueue:v1';
@@ -47,6 +48,27 @@ export function removeFromQueue(id) {
 // Clear entire queue
 export function clearQueue() {
   saveQueue([]);
+}
+
+// Remove everything this app stored for the signed-in user, so the next person
+// on a shared device can't see it and doesn't replay it under their own login:
+// the offline queue, cached lists, drafts and the service worker's API caches.
+export async function clearUserData() {
+  try {
+    clearQueue();
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('cache:') || key === 'selectedRepId') localStorage.removeItem(key);
+    }
+  } catch {}
+  try { sessionStorage.clear(); } catch {}
+  try { await clearIdb(); } catch {}
+  try {
+    if (typeof caches !== 'undefined') {
+      const names = await caches.keys();
+      await Promise.all(names.filter(n => n.startsWith('api-')).map(n => caches.delete(n)));
+    }
+  } catch {}
 }
 
 // Get queue count

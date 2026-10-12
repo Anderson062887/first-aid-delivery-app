@@ -19,7 +19,9 @@ const localStorageMock = {
   }),
   clear: vi.fn(() => {
     localStorageMock.store = {};
-  })
+  }),
+  key: vi.fn((i) => Object.keys(localStorageMock.store)[i] ?? null),
+  get length() { return Object.keys(localStorageMock.store).length; }
 };
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
@@ -30,7 +32,8 @@ global.fetch = vi.fn();
 vi.mock('idb-keyval', () => ({
   get: vi.fn(),
   set: vi.fn().mockResolvedValue(undefined),
-  del: vi.fn().mockResolvedValue(undefined)
+  del: vi.fn().mockResolvedValue(undefined),
+  clear: vi.fn().mockResolvedValue(undefined)
 }));
 
 // Reset mocks between tests

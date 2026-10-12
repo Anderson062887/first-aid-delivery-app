@@ -2,15 +2,29 @@ import { Router } from 'express';
 import Delivery from '../models/Delivery.js';
 import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
+import { isAdmin } from '../middleware/auth.js';
 
 const r = Router();
 
+// Admins see everyone's numbers; anyone else only their own.
+// Returns null (no restriction) or { repId, repName }.
+function scopeFor(user) {
+  return isAdmin(user) ? null : { repId: user._id, repName: user.name };
+}
 
-async function loadDeliveries({ from, to, location, tz }) {
+// A rep's deliveries: those on their visits, plus visit-less ones recorded under their name
+async function restrictDeliveries(q, scope) {
+  if (!scope) return;
+  const visitIds = await Visit.find({ rep: scope.repId }).distinct('_id');
+  q.$or = [{ visit: { $in: visitIds } }, { visit: null, repName: scope.repName }];
+}
+
+async function loadDeliveries({ from, to, location, tz, scope }) {
   const q = {};
   const deliveredRange = dayRange(from, to, tz);
   if (deliveredRange) q.deliveredAt = deliveredRange;
   if (location) q.location = location;
+  await restrictDeliveries(q, scope);
 
   // Populate what we need for charts
   const rows = await Delivery.find(q)
@@ -31,11 +45,12 @@ const outcomeKey = (o) => (OUTCOME_KEYS.includes(o) ? o : 'other');
 // Outcomes belong to visits, not deliveries: a visit counts once however many
 // boxes were refilled, and "no access"/"skipped" visits usually have no
 // deliveries at all. Date range applies to when the visit was submitted.
-async function loadSubmittedVisits({ from, to, location, tz }) {
+async function loadSubmittedVisits({ from, to, location, tz, scope }) {
   const q = { status: 'submitted' };
   const submittedRange = dayRange(from, to, tz);
   if (submittedRange) q.submittedAt = submittedRange;
   if (location) q.location = location;
+  if (scope) q.rep = scope.repId;
 
   return Visit.find(q).populate('rep', 'name').lean();
 }
@@ -49,7 +64,7 @@ r.get('/items-usage', async (req, res) => {
     const { from, to, location } = req.query;
     const limit = Math.max(1, Math.min(50, parseInt(req.query.limit ?? '10', 10)));
 
-    const deliveries = await loadDeliveries({ from, to, location, tz: req.query.tz });
+    const deliveries = await loadDeliveries({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) });
 
     const map = new Map(); // itemId -> { itemId, name, quantity, amount }
     for (const d of deliveries) {
@@ -83,8 +98,8 @@ r.get('/rep-productivity', async (req, res) => {
   try {
     const { from, to, location } = req.query;
     const [deliveries, visits] = await Promise.all([
-      loadDeliveries({ from, to, location, tz: req.query.tz }),
-      loadSubmittedVisits({ from, to, location, tz: req.query.tz })
+      loadDeliveries({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) }),
+      loadSubmittedVisits({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) })
     ]);
 
     const perRep = new Map(); // repName -> stats
@@ -149,7 +164,7 @@ r.get('/rep-productivity', async (req, res) => {
 r.get('/outcomes', async (req, res) => {
   try {
     const { from, to, location } = req.query;
-    const visits = await loadSubmittedVisits({ from, to, location, tz: req.query.tz });
+    const visits = await loadSubmittedVisits({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) });
 
     const counts = emptyOutcomes();
     for (const v of visits) counts[outcomeKey(v.outcome)]++;

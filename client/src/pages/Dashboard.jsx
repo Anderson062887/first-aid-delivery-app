@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom'
 import Flash from '../components/Flash.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import Skeleton from '../components/Skeleton.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 
 import {
@@ -27,6 +28,9 @@ function toISODate(d) {
 }
 
 export default function Dashboard(){
+  const { user } = useAuth();
+  // Reports only include the signed-in rep's own work unless they are an admin
+  const isAdmin = !!user?.roles?.includes('admin');
   const [ok, setOk] = useState(false);
   const q = useQuery();
   const done = q.get('done'); // 'delivery' | 'visit'
@@ -129,7 +133,7 @@ export default function Dashboard(){
         <div>
           <button className="btn" onClick={()=>{ setFrom(''); setTo(''); setLocation(''); }}>Clear</button>
           <div style={{ marginLeft:'auto' }}>
-            <strong>Total: ${totalAmount.toFixed(2)}</strong>
+            <strong>{isAdmin ? 'Total' : 'My total'}: ${totalAmount.toFixed(2)}</strong>
           </div>
         </div>
       </div>
@@ -145,7 +149,7 @@ export default function Dashboard(){
       {!loading && (
         <>
           <div className="card">
-            <h3>Top Items</h3>
+            <h3>{isAdmin ? 'Top Items' : 'My Top Items'}</h3>
             <div style={{ width:'100%', height:300 }}>
               <ResponsiveContainer>
                 <BarChart data={itemsData}>
@@ -160,7 +164,7 @@ export default function Dashboard(){
           </div>
 
           <div className="card">
-            <h3>Rep Performance</h3>
+            <h3>{isAdmin ? 'Rep Performance' : 'My Performance'}</h3>
             <div style={{ width:'100%', height:300 }}>
               <ResponsiveContainer>
                 <BarChart data={repData}>
@@ -175,7 +179,7 @@ export default function Dashboard(){
           </div>
 
           <div className="card">
-            <h3>Visit Outcomes</h3>
+            <h3>{isAdmin ? 'Visit Outcomes' : 'My Visit Outcomes'}</h3>
             <div style={{ width:'100%', height:300 }}>
               <ResponsiveContainer>
                 <PieChart>
