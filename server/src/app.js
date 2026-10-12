@@ -15,6 +15,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
 import { authRequired, requireRoles } from './middleware/auth.js';
 import { setCsrfToken, validateCsrf } from './middleware/csrf.js';
+import { validIdQuery } from './middleware/validateIds.js';
 
 const app = express();
 app.set('etag', false);
@@ -42,13 +43,23 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Protected routes with CSRF validation on state-changing requests
 app.use('/api/users', authRequired, validateCsrf, requireRoles('admin'), users);
-app.use('/api/visits', authRequired, validateCsrf, visits);
+app.use('/api/visits', authRequired, validateCsrf, validIdQuery('location', 'repId'), visits);
 app.use('/api/items', authRequired, validateCsrf, items);
 app.use('/api/locations', authRequired, validateCsrf, locations);
 app.use('/api/boxes', authRequired, validateCsrf, boxes);
 app.use('/api/deliveries', authRequired, validateCsrf, requireRoles('admin', 'rep'), deliveries);
-app.use('/api/exports', authRequired, requireRoles('admin'), exportsRoutes);
-app.use('/api/reports', authRequired, reportsRoutes);
+app.use('/api/exports', authRequired, requireRoles('admin'), validIdQuery('location', 'repId'), exportsRoutes);
+app.use('/api/reports', authRequired, validIdQuery('location', 'repId'), reportsRoutes);
+
+// Errors not handled by a route (Express 5 forwards rejected async handlers here)
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err?.name === 'CastError') return res.status(400).json({ error: `Invalid ${err.path}` });
+  const status = err?.status || err?.statusCode || 500;
+  if (status >= 500) console.error('Unhandled error:', err);
+  // e.g. malformed JSON bodies (400) keep their message; server errors don't leak details
+  res.status(status).json({ error: status < 500 && err.expose ? err.message : 'Internal server error' });
+});
 
 export default app;
 

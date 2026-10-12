@@ -7,6 +7,7 @@ import Box from '../models/Box.js';
 import { isAdmin } from '../middleware/auth.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
+import { validIdParam } from '../middleware/validateIds.js';
 
 // Must match the client (ItemPicker/Cart): a case costs pricePerPack,
 // a single unit costs pricePerPack / unitsPerPack.
@@ -19,6 +20,7 @@ function unitPriceFor(item, packaging) {
 
 
 const r = Router();
+r.param('id', validIdParam);
 
 function paging(q) {
   const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);

@@ -140,7 +140,7 @@ export default function ItemEdit() {
           </div>
           <div>
             <label>Units per pack</label>
-            <input className="input" type="number" min="1" name="unitsPerPack" value={form.unitsPerPack} onChange={update} />
+            <input className="input" type="number" min="1" step="1" name="unitsPerPack" value={form.unitsPerPack} onChange={update} />
           </div>
         </div>
 

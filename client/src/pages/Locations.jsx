@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
-import { visitApi } from '../api';
+import { api, visitApi } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import Skeleton from '../components/Skeleton.jsx';
@@ -14,27 +13,20 @@ export default function Locations(){
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
 
-  // helper to fetch last N visits for a location (supports both API shapes)
-  async function fetchRecentVisitsForLocation(locationId, limit = 5) {
-    const res = await fetch(`/api/visits?location=${encodeURIComponent(locationId)}&limit=${limit}`, {
-      headers: { 'Cache-Control': 'no-cache' }
-    });
-    if (!res.ok) throw new Error('Failed to load recent visits');
-    const json = await res.json();
-    const rows = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
-    rows.sort((a, b) => {
-      const ta = new Date(a.submittedAt || a.startedAt || a.createdAt || 0).getTime();
-      const tb = new Date(b.submittedAt || b.startedAt || b.createdAt || 0).getTime();
-      return tb - ta;
-    });
-    return rows;
-  }
-
   // Debounce input -> search (300ms)
   useEffect(() => {
     const t = setTimeout(() => setSearch(input.trim()), 300);
     return () => clearTimeout(t);
   }, [input]);
+
+  // Recent visits for every location, loaded once (not per location, not per search)
+  useEffect(() => {
+    let cancelled = false;
+    visitApi.recentByLocation(2)
+      .then(map => { if (!cancelled) setVisitsByLoc(map && typeof map === 'object' ? map : {}); })
+      .catch(() => {}); // the list still works without recent visits (e.g. offline)
+    return () => { cancelled = true; };
+  }, []);
 
   // Load locations whenever search changes
   useEffect(() => {
@@ -44,22 +36,7 @@ export default function Locations(){
         setLoading(true);
         setErr('');
         const locs = await api.locations.list(search);
-        if (cancelled) return;
-        setLocations(locs);
-
-        // fetch last 2 visits per location
-        const entries = await Promise.all(
-          (locs || []).map(async (loc) => {
-            try {
-              const visits = await fetchRecentVisitsForLocation(loc._id, 2);
-              return [loc._id, visits];
-            } catch {
-              return [loc._id, []];
-            }
-          })
-        );
-        if (cancelled) return;
-        setVisitsByLoc(Object.fromEntries(entries));
+        if (!cancelled) setLocations(locs);
       } catch (e) {
         if (!cancelled) setErr(String(e?.message || e));
       } finally {

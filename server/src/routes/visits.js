@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import Visit from '../models/Visit.js';
+import Location from '../models/Location.js';
 import Box, { ACTIVE_BOX } from '../models/Box.js';
 import Delivery from '../models/Delivery.js';
 import mongoose from 'mongoose';
 import { isAdmin } from '../middleware/auth.js';
 import { dayRange } from '../utils/dates.js';
+import { validIdParam } from '../middleware/validateIds.js';
 
 const r = Router();
+r.param('id', validIdParam);
 
 // Load a visit the current user may change: their own, or any visit for admins.
 // Sends the error response and returns null otherwise.
@@ -148,6 +151,9 @@ r.post('/', async (req, res) => {
 
     const { location } = req.body || {};
     if (!location) return res.status(400).json({ error: 'location is required' });
+    if (!mongoose.isValidObjectId(location) || !(await Location.exists({ _id: location }))) {
+      return res.status(400).json({ error: 'Location not found' });
+    }
 
     let visit = await Visit.findOne({ rep: repId, location, submittedAt: null });
     if (!visit) {
@@ -164,6 +170,35 @@ r.post('/', async (req, res) => {
     console.error('Start visit failed:', e);
     res.status(500).json({ error: 'Start visit failed' });
   }
+});
+
+/**
+ * GET /api/visits/recent-by-location?per=2
+ * The latest `per` visits of every location in one request, for the Locations page.
+ * Returns { [locationId]: [visit] }, newest first.
+ */
+r.get('/recent-by-location', async (req, res) => {
+  const per = Math.max(1, Math.min(10, parseInt(req.query.per ?? '2', 10) || 2));
+
+  const groups = await Visit.aggregate([
+    // Same "when" the page shows: submitted, else started (open visits included)
+    { $addFields: { at: { $ifNull: ['$submittedAt', { $ifNull: ['$startedAt', '$createdAt'] }] } } },
+    { $sort: { location: 1, at: -1, _id: -1 } },
+    { $group: { _id: '$location', ids: { $push: '$_id' } } },
+    { $project: { ids: { $slice: ['$ids', per] } } }
+  ]).allowDiskUse(true);
+
+  const visits = await Visit.find({ _id: { $in: groups.flatMap(g => g.ids) } })
+    .select('location rep outcome note status startedAt submittedAt createdAt')
+    .populate('rep', 'name')
+    .lean();
+  const byId = new Map(visits.map(v => [String(v._id), v]));
+
+  const result = {};
+  for (const g of groups) {
+    result[String(g._id)] = g.ids.map(id => byId.get(String(id))).filter(Boolean);
+  }
+  res.json(result);
 });
 
 // Get visit + per-box coverage for that location

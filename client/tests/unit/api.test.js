@@ -462,4 +462,13 @@ describe('api.js', () => {
       expect(Object.fromEntries(url.searchParams)).toEqual({ location: 'l1', repName: 'Ann', page: '2', limit: '10' });
     });
   });
+
+  describe('visitApi.recentByLocation', () => {
+    it('loads every location\'s recent visits in one request', async () => {
+      global.fetch.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ l1: [] }) });
+      await expect(visitApi.recentByLocation(2)).resolves.toEqual({ l1: [] });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch.mock.calls[0][0]).toBe('/api/visits/recent-by-location?per=2');
+    });
+  });
 });

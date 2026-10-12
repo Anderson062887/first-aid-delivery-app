@@ -2,8 +2,16 @@ import { Router } from 'express';
 import Item from '../models/Item.js';
 import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
+import { validIdParam } from '../middleware/validateIds.js';
+
+// "Item validation failed: unitsPerPack: ..." -> just the field's message
+function validationMessage(e) {
+  const first = e?.name === 'ValidationError' ? Object.values(e.errors || {})[0] : null;
+  return first?.message || e?.message;
+}
 
 const r = Router();
+r.param('id', validIdParam);
 
 /**
  * GET /api/items
@@ -48,7 +56,7 @@ r.post('/', requireRoles('admin'), async (req, res) => {
     res.status(201).json(it);
   } catch (e) {
     console.error('Item create failed:', e);
-    res.status(400).json({ error: e.message || 'Create item failed' });
+    res.status(400).json({ error: validationMessage(e) || 'Create item failed' });
   }
 });
 
@@ -73,7 +81,7 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
     res.json(it);
   } catch (e) {
     console.error('Item update failed:', e);
-    res.status(400).json({ error: e.message || 'Update item failed' });
+    res.status(400).json({ error: validationMessage(e) || 'Update item failed' });
   }
 });
 

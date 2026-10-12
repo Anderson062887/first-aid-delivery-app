@@ -377,6 +377,9 @@ export const visitApi = {
     }
   },
 
+  // Latest visits of every location in one request: { [locationId]: [visit] }
+  recentByLocation: (per = 2) => http(`/visits/recent-by-location?per=${per}`),
+
   // Fetch a visit
   get: (id) => fetch(`/api/visits/${id}?t=${Date.now()}`, {
     credentials: 'include',

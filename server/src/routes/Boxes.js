@@ -4,8 +4,10 @@ import Box, { ACTIVE_BOX } from '../models/Box.js';
 import Location from '../models/Location.js';
 import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
+import { validIdParam } from '../middleware/validateIds.js';
 
 const r = Router();
+r.param('id', validIdParam);
 
 const SIZES = ['S', 'M', 'L', 'XL'];
 
@@ -28,7 +30,6 @@ r.get('/', async (req, res) => {
 
 r.get('/:id', async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Box not found' });
     const b = await Box.findById(req.params.id).populate('location').populate('items.item');
     if (!b) return res.status(404).json({ error: 'Box not found' });
     res.json(b);
@@ -66,7 +67,6 @@ r.post('/', requireRoles('admin'), async (req, res) => {
 /** Rename, resize, retire or restore a box. Body: { label?, size?, active? } */
 r.patch('/:id', requireRoles('admin'), async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Box not found' });
     const { label, size, active } = req.body || {};
     const update = {};
 
@@ -95,7 +95,6 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
 /** Delete a box. Refused if deliveries reference it: retire it instead. */
 r.delete('/:id', requireRoles('admin'), async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Box not found' });
     if (await Delivery.exists({ box: req.params.id })) {
       return res.status(409).json({ error: 'This box has delivery history. Retire it instead.' });
     }

@@ -5,8 +5,10 @@ import Visit from '../models/Visit.js';
 import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
 import { escapeRegex } from '../utils/regex.js';
+import { validIdParam } from '../middleware/validateIds.js';
 
 const r = Router();
+r.param('id', validIdParam);
 
 
 /** List locations */

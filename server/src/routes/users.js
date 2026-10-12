@@ -4,8 +4,10 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Visit from '../models/Visit.js';
 import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
+import { validIdParam } from '../middleware/validateIds.js';
 
 const r = Router();
+r.param('id', validIdParam);
 
 const isActiveAdmin = (u) => (u.roles || []).includes('admin') && u.active !== false;
 
