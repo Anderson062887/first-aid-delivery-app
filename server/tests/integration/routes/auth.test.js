@@ -253,4 +253,23 @@ describe('Auth API', () => {
         .expect(400);
     });
   });
+
+  describe('login rate limit behind the proxy', () => {
+    const env = process.env.NODE_ENV;
+    beforeEach(() => { process.env.NODE_ENV = 'development'; }); // limiter is skipped in test
+    afterEach(() => { process.env.NODE_ENV = env; });
+
+    const badLogin = (ip) => request(app)
+      .post('/api/auth/login')
+      .set('X-Forwarded-For', ip)
+      .send({ email: 'nobody@example.com', password: 'wrong' });
+
+    it('counts failed logins per client IP, not for everyone behind Nginx', async () => {
+      for (let i = 0; i < 5; i++) await badLogin('203.0.113.7').expect(401);
+      await badLogin('203.0.113.7').expect(429);
+
+      // A different client is not locked out by someone else's failures
+      await badLogin('198.51.100.9').expect(401);
+    });
+  });
 });

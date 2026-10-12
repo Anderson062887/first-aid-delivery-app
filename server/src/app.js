@@ -18,6 +18,10 @@ import { setCsrfToken, validateCsrf } from './middleware/csrf.js';
 
 const app = express();
 app.set('etag', false);
+// Nginx on the same host forwards requests; use its X-Forwarded-For as req.ip so
+// rate limits apply per client instead of to everyone at once. Only loopback is
+// trusted, so clients reaching the port directly cannot spoof their address.
+app.set('trust proxy', 'loopback');
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN || true,
   credentials: true

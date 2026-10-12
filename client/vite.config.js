@@ -54,63 +54,9 @@ export default defineConfig({
             },
           },
 
-          // ====== POST/PATCH APIs (Background Sync Queues) ======
-
-          {
-            urlPattern: ({ url }) => url.pathname === '/api/visits',
-            handler: 'NetworkOnly',
-            method: 'POST',
-            options: {
-              backgroundSync: {
-                name: 'queue-visits',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname === '/api/deliveries',
-            handler: 'NetworkOnly',
-            method: 'POST',
-            options: {
-              backgroundSync: {
-                name: 'queue-deliveries',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => /^\/api\/visits\/[^/]+\/submit$/.test(url.pathname),
-            handler: 'NetworkOnly',
-            method: 'POST',
-            options: {
-              backgroundSync: {
-                name: 'queue-visit-submit',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => /^\/api\/visits\/[^/]+(?:\/note)?$/.test(url.pathname),
-            handler: 'NetworkOnly',
-            method: 'PATCH',
-            options: {
-              backgroundSync: {
-                name: 'queue-visit-patch',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => /^\/api\/deliveries\/[^/]+$/.test(url.pathname),
-            handler: 'NetworkOnly',
-            method: 'PATCH',
-            options: {
-              backgroundSync: {
-                name: 'queue-delivery-patch',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
+          // POST/PATCH requests are deliberately NOT handled here. Failed writes are
+          // queued by the app itself (client/src/offline.js); a second Workbox
+          // backgroundSync queue would replay them again and create duplicates.
         ],
       },
       manifest: {
