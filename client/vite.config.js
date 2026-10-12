@@ -15,21 +15,25 @@ export default defineConfig({
         runtimeCaching: [
           // ====== GET APIs ======
 
-          // Items: stale-while-revalidate (fast, then refresh)
+          // Items and locations: network-first so prices, retired items and
+          // renamed locations are current whenever there is a connection.
+          // The cached copy is only used offline or on a very slow network.
           {
             urlPattern: /\/api\/items(\?|$)/,
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-items',
+              networkTimeoutSeconds: 5,
               expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 }, // 1 day
             },
           },
           // Unfiltered locations list (used for dropdowns)
           {
-            urlPattern: /\/api\/locations(\?|$)/,
-            handler: 'StaleWhileRevalidate',
+            urlPattern: ({ url }) => url.pathname === '/api/locations' && !url.searchParams.get('q'),
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-locations',
+              networkTimeoutSeconds: 5,
               expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 },
             },
           },

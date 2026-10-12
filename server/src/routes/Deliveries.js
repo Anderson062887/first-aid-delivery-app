@@ -6,6 +6,7 @@ import Visit from '../models/Visit.js';
 import Box from '../models/Box.js';
 import { isAdmin } from '../middleware/auth.js';
 import { dayRange } from '../utils/dates.js';
+import { escapeRegex } from '../utils/regex.js';
 
 // Must match the client (ItemPicker/Cart): a case costs pricePerPack,
 // a single unit costs pricePerPack / unitsPerPack.
@@ -19,43 +20,52 @@ function unitPriceFor(item, packaging) {
 
 const r = Router();
 
+function paging(q) {
+  const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(q.limit ?? '50', 10) || 50));
+  return { page, limit };
+}
+
+/**
+ * Build the Mongo filter shared by the list endpoints. Ids are cast to ObjectId
+ * so the same filter works in both find() and aggregate().
+ * Returns { query }, { error } (bad input) or { empty: true } (nothing can match).
+ */
+async function buildListQuery(q) {
+  const { location, from, to, repId, repName, visit } = q;
+  const query = {};
+
+  for (const [name, id] of [['location', location], ['visit', visit], ['repId', repId]]) {
+    if (id && !mongoose.isValidObjectId(id)) return { error: `Invalid ${name} id` };
+  }
+  const oid = (id) => new mongoose.Types.ObjectId(String(id));
+
+  if (location) query.location = oid(location);
+  if (visit) query.visit = oid(visit);
+
+  // Filter by date range (calendar days in the user's timezone)
+  const deliveredRange = dayRange(from, to, q.tz);
+  if (deliveredRange) query.deliveredAt = deliveredRange;
+
+  // Filter by rep
+  if (repId) {
+    const visits = await Visit.find({ rep: oid(repId) }, { _id: 1 }).lean();
+    const vIds = visits.map(v => v._id);
+    if (vIds.length === 0) return { empty: true };
+    query.visit = query.visit ? { $eq: query.visit, $in: vIds } : { $in: vIds };
+  } else if (repName && String(repName).trim()) {
+    query.repName = { $regex: escapeRegex(String(repName).trim()), $options: 'i' };
+  }
+
+  return { query };
+}
+
 r.get('/', async (req, res) => {
   try {
-    const { location, from, to, repId, repName, visit } = req.query;
-    const page = Math.max(1, parseInt(req.query.page ?? '1', 10));
-    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit ?? '50', 10)));
-
-    const query = {};
-
-    // Filter by location
-    if (location) query.location = location;
-
-    // Filter by visit
-    if (visit) {
-      if (!mongoose.isValidObjectId(visit)) {
-        return res.status(400).json({ error: 'Invalid visit id' });
-      }
-      query.visit = visit;
-    }
-
-    // Filter by date range (calendar days in the user's timezone)
-    const deliveredRange = dayRange(from, to, req.query.tz);
-    if (deliveredRange) query.deliveredAt = deliveredRange;
-
-    // Filter by rep
-    if (repId) {
-      const visits = await Visit.find({ rep: repId }, { _id: 1 }).lean();
-      const vIds = visits.map(v => v._id);
-      if (vIds.length === 0) {
-        return res.json({
-          data: [],
-          pageInfo: { page, limit, total: 0, hasMore: false }
-        });
-      }
-      query.visit = query.visit ? { $eq: query.visit, $in: vIds } : { $in: vIds };
-    } else if (repName) {
-      query.repName = { $regex: repName, $options: 'i' };
-    }
+    const { page, limit } = paging(req.query);
+    const { query, error, empty } = await buildListQuery(req.query);
+    if (error) return res.status(400).json({ error });
+    if (empty) return res.json({ data: [], pageInfo: { page, limit, total: 0, hasMore: false } });
 
     const total = await Delivery.countDocuments(query);
     const data = await Delivery.find(query)
@@ -75,6 +85,69 @@ r.get('/', async (req, res) => {
     });
   } catch (err) {
     console.error('List deliveries failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Deliveries grouped by visit, paged by group so a visit is never split across
+ * pages. Deliveries without a visit are one row each.
+ * Same filters as GET /. Returns { data: [group], pageInfo } where total counts groups.
+ */
+r.get('/by-visit', async (req, res) => {
+  try {
+    const { page, limit } = paging(req.query);
+    const { query, error, empty } = await buildListQuery(req.query);
+    if (error) return res.status(400).json({ error });
+    if (empty) return res.json({ data: [], pageInfo: { page, limit, total: 0, hasMore: false } });
+
+    const [result] = await Delivery.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: { $ifNull: ['$visit', '$_id'] },
+          visit: { $first: '$visit' },
+          delivery: { $first: '$_id' },
+          location: { $first: '$location' },
+          repName: { $first: '$repName' },
+          when: { $min: { $ifNull: ['$deliveredAt', '$createdAt'] } },
+          boxCount: { $sum: 1 },
+          total: { $sum: { $ifNull: ['$total', 0] } }
+        }
+      },
+      { $sort: { when: -1, _id: -1 } },
+      {
+        $facet: {
+          rows: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+          count: [{ $count: 'total' }]
+        }
+      }
+    ]);
+
+    const rows = result?.rows || [];
+    const total = result?.count?.[0]?.total || 0;
+
+    await Delivery.populate(rows, [
+      { path: 'location', model: 'Location', select: 'name' },
+      { path: 'visit', model: 'Visit', select: 'rep outcome note status', populate: { path: 'rep', select: 'name' } }
+    ]);
+
+    const data = rows.map(g => ({
+      key: String(g._id),
+      visitId: g.visit?._id ? String(g.visit._id) : null,
+      deliveryId: g.visit ? null : String(g.delivery),
+      when: g.when,
+      repName: g.visit?.rep?.name || g.repName || '',
+      locationName: g.location?.name || '',
+      boxCount: g.boxCount,
+      total: Math.round(g.total * 100) / 100,
+      outcome: g.visit?.outcome || '',
+      note: g.visit?.note || ''
+    }));
+
+    res.json({ data, pageInfo: { page, limit, total, hasMore: page * limit < total } });
+  } catch (err) {
+    console.error('List deliveries by visit failed:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -100,6 +173,9 @@ r.post('/', async (req, res) => {
     if (!boxDoc) return res.status(400).json({ error: 'Box not found' });
     if (String(boxDoc.location) !== String(location)) {
       return res.status(400).json({ error: 'That box does not belong to this location' });
+    }
+    if (boxDoc.active === false) {
+      return res.status(400).json({ error: 'That box has been retired' });
     }
 
     // --- rep name: from visit.rep if provided, otherwise from the logged-in user ---

@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import Delivery from '../models/Delivery.js';
 import { dayRange } from '../utils/dates.js';
+import { escapeRegex } from '../utils/regex.js';
 
 const r = Router();
 
@@ -30,7 +31,9 @@ async function loadDeliveriesWithFilters(qs) {
   const deliveredRange = dayRange(from, to, tz);
   if (deliveredRange) query.deliveredAt = deliveredRange;
   if (location) query.location = location;
-  if (repName)  query.repName = { $regex: repName, $options: 'i' };
+  if (repName && String(repName).trim()) {
+    query.repName = { $regex: escapeRegex(String(repName).trim()), $options: 'i' };
+  }
 
   const deliveries = await Delivery.find(query)
     .sort({ deliveredAt: 1, _id: 1 })

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import Visit from '../models/Visit.js';
-import Box from '../models/Box.js';
+import Box, { ACTIVE_BOX } from '../models/Box.js';
 import Delivery from '../models/Delivery.js';
 import mongoose from 'mongoose';
 import { isAdmin } from '../middleware/auth.js';
@@ -170,7 +170,7 @@ r.post('/', async (req, res) => {
 r.get('/:id', async (req,res)=>{
   const v = await Visit.findById(req.params.id).populate('rep location');
   if(!v) return res.sendStatus(404);
-  const boxes = await Box.find({ location: v.location });
+  const boxes = await Box.find({ location: v.location, ...ACTIVE_BOX });
   const deliveries = await Delivery.find({ visit: v._id });
   const covered = new Set(deliveries.map(d=> String(d.box)));
   const coverage = boxes.map(b => ({
@@ -231,7 +231,7 @@ r.post('/:id/submit', async (req,res)=>{
 
   // Only enforce coverage if outcome is "completed"
   if (outcome === 'completed') {
-    const boxes = await Box.find({ location: v.location });
+    const boxes = await Box.find({ location: v.location, ...ACTIVE_BOX });
     const deliveries = await Delivery.find({ visit: v._id });
     const covered = new Set(deliveries.map(d=> String(d.box)));
     const missing = boxes.filter(b => !covered.has(String(b._id)));

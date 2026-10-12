@@ -337,6 +337,75 @@ describe('Deliveries API', () => {
     });
   });
 
+  describe('GET /api/deliveries/by-visit', () => {
+    const make = (overrides) => Delivery.create({
+      location: location._id, box: box._id, repName: 'Alice',
+      lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 10, lineTotal: 10 }],
+      subtotal: 10, tax: 0, total: 10, ...overrides
+    });
+    const at = (min) => new Date(Date.UTC(2026, 0, 1, 12, min));
+
+    it('pages by visit, so a visit is never split and totals cover all its boxes', async () => {
+      const older = await createVisit(Visit, user._id, location._id);
+      // newest visit: 3 deliveries
+      for (const m of [30, 31, 32]) await make({ visit: visit._id, deliveredAt: at(m) });
+      // older visit: 2 deliveries
+      for (const m of [10, 11]) await make({ visit: older._id, deliveredAt: at(m), total: 5 });
+
+      const page1 = await request(app).get('/api/deliveries/by-visit?limit=1').set('Cookie', cookie).expect(200);
+      expect(page1.body.pageInfo).toMatchObject({ total: 2, hasMore: true });
+      expect(page1.body.data).toHaveLength(1);
+      expect(page1.body.data[0]).toMatchObject({ visitId: String(visit._id), boxCount: 3, total: 30 });
+
+      const page2 = await request(app).get('/api/deliveries/by-visit?limit=1&page=2').set('Cookie', cookie).expect(200);
+      expect(page2.body.data[0]).toMatchObject({ visitId: String(older._id), boxCount: 2, total: 10 });
+      expect(page2.body.pageInfo.hasMore).toBe(false);
+    });
+
+    it('lists each delivery without a visit as its own row', async () => {
+      const other = await createLocation(Location, { name: 'Other place' });
+      const a = await make({ deliveredAt: at(1) });
+      const b = await make({ location: other._id, deliveredAt: at(2) });
+
+      const res = await request(app).get('/api/deliveries/by-visit').set('Cookie', cookie).expect(200);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data.map(g => g.deliveryId)).toEqual([String(b._id), String(a._id)]);
+      expect(res.body.data.map(g => g.locationName)).toEqual(['Other place', location.name]);
+      expect(res.body.data.every(g => g.visitId === null && g.boxCount === 1)).toBe(true);
+    });
+
+    it('applies the same filters as the plain list', async () => {
+      await make({ visit: visit._id, repName: 'Alice' });
+      await make({ repName: 'Bob' });
+
+      const res = await request(app).get('/api/deliveries/by-visit?repName=bo').set('Cookie', cookie).expect(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].repName).toBe('Bob');
+
+      await request(app).get('/api/deliveries/by-visit?location=nope').set('Cookie', cookie).expect(400);
+    });
+  });
+
+  describe('rep name search', () => {
+    it('treats regex characters literally instead of failing', async () => {
+      await Delivery.create({
+        location: location._id, box: box._id, repName: 'Ann (North)',
+        lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 10, lineTotal: 10 }],
+        subtotal: 10, tax: 0, total: 10
+      });
+
+      for (const url of ['/api/deliveries', '/api/deliveries/by-visit']) {
+        const bad = await request(app).get(`${url}?repName=${encodeURIComponent('(')}`).set('Cookie', cookie).expect(200);
+        expect(bad.body.data).toHaveLength(1);
+        const evil = await request(app).get(`${url}?repName=${encodeURIComponent('(a+)+$')}`).set('Cookie', cookie).expect(200);
+        expect(evil.body.data).toHaveLength(0);
+      }
+
+      const csv = await request(app).get(`/api/exports/deliveries.csv?repName=${encodeURIComponent('(North)')}`).set('Cookie', cookie).expect(200);
+      expect(csv.text).toContain('Ann (North)');
+    });
+  });
+
   describe('GET /api/deliveries/:id', () => {
     it('should return delivery with populated fields', async () => {
       const delivery = await Delivery.create({

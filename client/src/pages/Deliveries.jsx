@@ -28,7 +28,7 @@ export default function Deliveries() {
   const [page, setPage]         = useState(1);
 
   // --- data ---
-  const [rows, setRows]         = useState([]);   // deliveries from API (data)
+  const [rows, setRows]         = useState([]);   // one row per visit, grouped by the server
   const [pageInfo, setPageInfo] = useState({ page:1, limit:25, total:0, hasMore:false });
   const [locations, setLocations] = useState([]);
   const [reps, setReps]         = useState([]);   // admin list; reps won't use this
@@ -93,7 +93,7 @@ export default function Deliveries() {
           if (repName) filters.repName = repName;
         }
 
-        const res = await api.deliveries.list(filters); // { data, pageInfo }
+        const res = await api.deliveries.listByVisit(filters); // { data, pageInfo }
         if (cancelled) return;
         const data = res?.data ?? [];
         setRows(Array.isArray(data) ? data : []);
@@ -108,39 +108,10 @@ export default function Deliveries() {
     return () => { cancelled = true; };
   }, [location, from, to, repId, repName, page, limit, isAdmin]);
 
-  // Group deliveries by visit
-  const grouped = useMemo(() => {
-    const map = new Map();
-    for (const d of rows) {
-      const key = d.visit?._id || 'no-visit';
-      if (!map.has(key)) {
-        map.set(key, {
-          visitId: d.visit?._id || 'no-visit',
-          when: new Date(d.deliveredAt || d.createdAt || Date.now()),
-          repName: d.visit?.rep?.name || d.repName || '—',
-          locationName: d.location?.name || '—',
-          boxCount: 0,
-          total: 0,
-          outcome: d.visit?.outcome || '',
-          note: d.visit?.note || ''
-        });
-      }
-      const g = map.get(key);
-      g.boxCount += 1;
-      g.total += Number(d.total || 0) || 0;
-
-      const dt = new Date(d.deliveredAt || d.createdAt || Date.now());
-      if (dt < g.when) g.when = dt;
-
-      if (!g.locationName && d.location?.name) g.locationName = d.location.name;
-      if ((!g.repName || g.repName === '—') && (d.visit?.rep?.name || d.repName)) {
-        g.repName = d.visit?.rep?.name || d.repName;
-      }
-      if (!g.outcome && d.visit?.outcome) g.outcome = d.visit.outcome;
-      if (!g.note && d.visit?.note) g.note = d.visit.note;
-    }
-    return Array.from(map.values()).sort((a, b) => b.when - a.when);
-  }, [rows]);
+  const grouped = useMemo(
+    () => rows.map(g => ({ ...g, when: new Date(g.when) })),
+    [rows]
+  );
 
   const totalAmount = useMemo(
     () => grouped.reduce((sum, g) => sum + (Number(g.total || 0) || 0), 0),
@@ -282,15 +253,15 @@ export default function Deliveries() {
             </thead>
             <tbody>
               {grouped.map((g) => (
-                <tr key={g.visitId}>
+                <tr key={g.key}>
                   <td data-label="Date">{g.when.toLocaleString()}</td>
-                  <td data-label="Rep">{g.repName}</td>
-                  <td data-label="Location">{g.locationName}</td>
+                  <td data-label="Rep">{g.repName || '—'}</td>
+                  <td data-label="Location">{g.locationName || '—'}</td>
                   <td data-label="Boxes">{g.boxCount}</td>
                   <td data-label="Details">
-                    {g.visitId !== 'no-visit'
+                    {g.visitId
                       ? <Link to={`/deliveries/visit/${g.visitId}`}>View details</Link>
-                      : <span style={{ opacity: 0.6 }}>—</span>}
+                      : <Link to={`/deliveries/${g.deliveryId}`}>View delivery</Link>}
                   </td>
                   <td data-label="Outcome">
                     {g.outcome ? (

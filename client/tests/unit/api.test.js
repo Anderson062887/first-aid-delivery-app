@@ -389,6 +389,9 @@ describe('api.js', () => {
       ['visitApi.start', () => visitApi.start('l1')],
       ['visitApi.submit', () => visitApi.submit('v1', { outcome: 'partial' })],
       ['visitApi.update', () => visitApi.update('v1', { note: 'x' })],
+      ['api.boxes.create', () => api.boxes.create({ location: 'l1', size: 'M' })],
+      ['api.boxes.update', () => api.boxes.update('b1', { active: false })],
+      ['api.boxes.remove', () => api.boxes.remove('b1', 'l1')],
     ];
 
     it.each(writes)('%s sends x-csrf-token', async (_name, call) => {
@@ -427,6 +430,36 @@ describe('api.js', () => {
       await reportsApi.outcomes({ location: 'l1' });
       const url = new URL(global.fetch.mock.calls[0][0], 'http://x');
       expect(url.searchParams.has('tz')).toBe(false);
+    });
+  });
+
+  describe('api.boxes.list', () => {
+    it('returns the list on success', async () => {
+      global.fetch.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve([{ _id: 'b1' }]) });
+      await expect(api.boxes.list('l1')).resolves.toEqual([{ _id: 'b1' }]);
+      expect(global.fetch.mock.calls[0][0]).toBe('/api/boxes?location=l1');
+    });
+
+    it('throws on an error response instead of returning it as the box list', async () => {
+      // Callers fall back to their offline copy only when this throws
+      global.fetch.mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Session expired' }) });
+      await expect(api.boxes.list('l1')).rejects.toThrow('Session expired');
+    });
+
+    it('asks for retired boxes only when requested', async () => {
+      global.fetch.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve([]) });
+      await api.boxes.list('l1', { all: true });
+      expect(global.fetch.mock.calls[0][0]).toBe('/api/boxes?location=l1&all=1');
+    });
+  });
+
+  describe('api.deliveries.listByVisit', () => {
+    it('calls the grouped endpoint with the same filters', async () => {
+      global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: [], pageInfo: {} }) });
+      await api.deliveries.listByVisit({ location: 'l1', repName: 'Ann', page: 2, limit: 10 });
+      const url = new URL(global.fetch.mock.calls[0][0], 'http://x');
+      expect(url.pathname).toBe('/api/deliveries/by-visit');
+      expect(Object.fromEntries(url.searchParams)).toEqual({ location: 'l1', repName: 'Ann', page: '2', limit: '10' });
     });
   });
 });

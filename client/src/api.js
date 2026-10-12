@@ -120,6 +120,26 @@ export const authApi = {
 };
 
 // ---- Existing API ----
+async function fetchDeliveryList(path, filters) {
+  const params = new URLSearchParams();
+
+  if (filters.location) params.set('location', filters.location);
+  if (filters.from)     params.set('from', filters.from); // YYYY-MM-DD
+  if (filters.to)       params.set('to', filters.to);
+  if (filters.from || filters.to) params.set('tz', userTimeZone());
+  if (filters.repId)    params.set('repId', filters.repId);
+  else if (filters.repName) params.set('repName', filters.repName);
+
+  params.set('page',  filters.page  ?? 1);
+  params.set('limit', filters.limit ?? 25);
+
+  const res = await fetch(`${path}?${params.toString()}`, {
+    credentials: 'include'
+  });
+  if (!res.ok) throw new Error('Failed to fetch deliveries');
+  return res.json(); // { data, pageInfo }
+}
+
 export const api = {
   health: () => http('/health'),
   items: {
@@ -190,40 +210,38 @@ export const api = {
     },
   },
   boxes: {
-    list: (locationId) =>
-      fetch(`/api/boxes${locationId ? `?location=${locationId}` : ''}`, { credentials: 'include' }).then(r => r.json()),
-    one: (id) => fetch(`/api/boxes/${id}`, { credentials: 'include' }).then(r => r.json()),
+    // Throws on any failure so callers fall back to their offline copy instead
+    // of treating an error response as "this location has no boxes".
+    list: async (locationId, { all = false } = {}) => {
+      const params = new URLSearchParams();
+      if (locationId) params.set('location', locationId);
+      if (all) params.set('all', '1');
+      const qs = params.toString();
+      const list = await http(`/boxes${qs ? `?${qs}` : ''}`);
+      if (!Array.isArray(list)) throw new Error('Failed to load boxes');
+      return list;
+    },
+    one: (id) => http(`/boxes/${id}`),
     create: async (data) => {
-      const result = await fetch('/api/boxes', {
-        method: 'POST',
-        credentials: 'include',
-        headers: getHeaders('POST'),
-        body: JSON.stringify(data)
-      }).then(r => r.json());
-      if (data.location) invalidateBoxesCache(data.location);
+      const result = await http('/boxes', { method: 'POST', body: JSON.stringify(data) });
+      invalidateBoxesCache(data.location);
       return result;
+    },
+    update: async (id, data) => {
+      const result = await http(`/boxes/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+      invalidateBoxesCache(result?.location);
+      return result;
+    },
+    remove: async (id, locationId) => {
+      await http(`/boxes/${id}`, { method: 'DELETE' });
+      invalidateBoxesCache(locationId);
     },
   },
   deliveries: {
-  list: async (filters = {}) => {
-    const params = new URLSearchParams();
+  list: (filters = {}) => fetchDeliveryList('/api/deliveries', filters),
 
-    if (filters.location) params.set('location', filters.location);
-    if (filters.from)     params.set('from', filters.from); // YYYY-MM-DD
-    if (filters.to)       params.set('to', filters.to);
-    if (filters.from || filters.to) params.set('tz', userTimeZone());
-    if (filters.repId)    params.set('repId', filters.repId);
-    else if (filters.repName) params.set('repName', filters.repName);
-
-    params.set('page',  filters.page  ?? 1);
-    params.set('limit', filters.limit ?? 25);
-
-    const res = await fetch(`/api/deliveries?${params.toString()}`, {
-      credentials: 'include'
-    });
-    if (!res.ok) throw new Error('Failed to fetch deliveries');
-    return res.json(); // { data, pageInfo, filters }
-  },
+  // One row per visit (deliveries without a visit are one row each), paged by row
+  listByVisit: (filters = {}) => fetchDeliveryList('/api/deliveries/by-visit', filters),
 
   // OFFLINE-AWARE create
   create: (payload) => postWithOffline('/api/deliveries', payload),

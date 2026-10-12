@@ -17,9 +17,14 @@ const BoxSchema = new mongoose.Schema(
       enum: ['S', 'M', 'L', 'XL'], 
       required: true 
     },
-    items: [BoxItemSchema]
+    items: [BoxItemSchema],
+    // Retired boxes keep their delivery history but no longer need refilling
+    active: { type: Boolean, default: true }
   },
   { timestamps: true }
 );
+
+// Boxes that still need refilling (boxes created before `active` existed count as active)
+export const ACTIVE_BOX = { active: { $ne: false } };
 
 export default mongoose.model('Box', BoxSchema);

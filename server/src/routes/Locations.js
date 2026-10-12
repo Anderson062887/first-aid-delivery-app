@@ -4,13 +4,10 @@ import Box from '../models/Box.js';
 import Visit from '../models/Visit.js';
 import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
+import { escapeRegex } from '../utils/regex.js';
 
 const r = Router();
 
-// Escape special regex characters to prevent ReDoS attacks
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /** List locations */
 r.get('/', async (req, res) => {
