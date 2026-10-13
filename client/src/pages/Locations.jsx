@@ -3,8 +3,11 @@ import { api, visitApi } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import Skeleton from '../components/Skeleton.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function Locations(){
+  const { user } = useAuth();
+  const isAdmin = !!user?.roles?.includes('admin');
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState([]);
@@ -116,8 +119,8 @@ export default function Locations(){
               </div>
 
               <div style={{ marginTop:8 }}>
-                <div style={{ fontWeight:600, marginBottom:4 }}>Recent visits</div>
-                {visits.length === 0 && <div style={{ opacity:.8 }}>No visits yet.</div>}
+                <div style={{ fontWeight:600, marginBottom:4 }}>{isAdmin ? 'Recent visits' : 'Your recent visits'}</div>
+                {visits.length === 0 && <div style={{ opacity:.8 }}>{isAdmin ? 'No visits yet.' : "You haven't visited yet."}</div>}
                 {visits.length > 0 && (
                   <ul style={{ margin:0, paddingLeft:18, display:'grid', gap:6 }}>
                     {visits.map(v => (

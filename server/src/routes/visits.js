@@ -72,7 +72,9 @@ r.get('/', async (req, res) => {
 
     const q = {};
     if (location) q.location = location;
-    if (repId) q.rep = repId;
+    // Reps only see their own visits; admins can pick any rep
+    if (!isAdmin(req.user)) q.rep = req.user._id;
+    else if (repId) q.rep = repId;
 
     // Date filter: use submittedAt if present, else startedAt/createdAt
     // We'll filter on createdAt as a conservative baseline.
@@ -181,6 +183,9 @@ r.get('/recent-by-location', async (req, res) => {
   const per = Math.max(1, Math.min(10, parseInt(req.query.per ?? '2', 10) || 2));
 
   const groups = await Visit.aggregate([
+    // Reps only see their own visits
+    // (aggregate doesn't cast ids, so make it an ObjectId)
+    { $match: isAdmin(req.user) ? {} : { rep: new mongoose.Types.ObjectId(String(req.user._id)) } },
     // Same "when" the page shows: submitted, else started (open visits included)
     { $addFields: { at: { $ifNull: ['$submittedAt', { $ifNull: ['$startedAt', '$createdAt'] }] } } },
     { $sort: { location: 1, at: -1, _id: -1 } },
@@ -204,7 +209,10 @@ r.get('/recent-by-location', async (req, res) => {
 // Get visit + per-box coverage for that location
 r.get('/:id', async (req,res)=>{
   const v = await Visit.findById(req.params.id).populate('rep location');
-  if(!v) return res.sendStatus(404);
+  // Another rep's visit looks the same as a missing one
+  if (!v || (!isAdmin(req.user) && String(v.rep?._id) !== String(req.user._id))) {
+    return res.sendStatus(404);
+  }
   const boxes = await Box.find({ location: v.location, ...ACTIVE_BOX });
   const deliveries = await Delivery.find({ visit: v._id });
   const covered = new Set(deliveries.map(d=> String(d.box)));

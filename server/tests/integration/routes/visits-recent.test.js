@@ -30,3 +30,28 @@ describe('GET /api/visits/recent-by-location', () => {
     expect(res.body[b._id][0].rep.name).toBe('Ann');
   });
 });
+
+describe('reps only see their own visits', () => {
+  it('in the list, the recent-visits summary and the visit page; admins see all', async () => {
+    const ann = await createUser(User, { name: 'Ann', email: 'ann@example.com' });
+    const bob = await createUser(User, { name: 'Bob', email: 'bob@example.com' });
+    const admin = await createUser(User, { name: 'Admin', email: 'admin@example.com', roles: ['admin'] });
+    const loc = await createLocation(Location, { name: 'Shared' });
+    const annVisit = await createVisit(Visit, ann._id, loc._id, { status: 'submitted', outcome: 'completed', submittedAt: new Date() });
+    const bobVisit = await createVisit(Visit, bob._id, loc._id, { status: 'submitted', outcome: 'skipped', note: 'private', submittedAt: new Date() });
+    const as = (u, url) => request(app).get(url).set('Cookie', authCookie(u));
+
+    const list = await as(ann, `/api/visits?location=${loc._id}&limit=10&repId=${bob._id}`).expect(200);
+    expect(list.body.map(v => v._id)).toEqual([String(annVisit._id)]);
+
+    const recent = await as(ann, '/api/visits/recent-by-location?per=5').expect(200);
+    expect(recent.body[loc._id].map(v => v._id)).toEqual([String(annVisit._id)]);
+
+    await as(ann, `/api/visits/${bobVisit._id}`).expect(404);
+    await as(ann, `/api/visits/${annVisit._id}`).expect(200);
+
+    const all = await as(admin, '/api/visits/recent-by-location?per=5').expect(200);
+    expect(all.body[loc._id]).toHaveLength(2);
+    await as(admin, `/api/visits/${bobVisit._id}`).expect(200);
+  });
+});
