@@ -4,6 +4,7 @@ import Delivery from '../models/Delivery.js';
 import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
+import { repDeliveriesFilter } from '../utils/repDeliveries.js';
 
 const r = Router();
 
@@ -36,16 +37,14 @@ async function loadDeliveriesWithFilters(qs) {
     query.repName = { $regex: escapeRegex(String(repName).trim()), $options: 'i' };
   }
 
-  const deliveries = await Delivery.find(query)
+  if (repId) query.$and = [await repDeliveriesFilter(repId)];
+
+  return Delivery.find(query)
     .sort({ deliveredAt: 1, _id: 1 })
     .populate('location box lines.item')
+    .populate('rep', 'name')
     .populate({ path: 'visit', populate: { path: 'rep', select: 'name' } })
     .lean();
-
-  if (repId) {
-    return deliveries.filter(d => d.visit?.rep?._id?.toString() === String(repId));
-  }
-  return deliveries;
 }
 
 const OUTCOMES = ['completed', 'partial', 'no_access', 'skipped'];
@@ -109,7 +108,7 @@ r.get('/deliveries.csv', async (req, res) => {
           d.box?._id || '',
           d.box?.label || '',
           d.box?.size || '',
-          d.visit?.rep?.name || d.repName || '',
+          d.visit?.rep?.name || d.rep?.name || d.repName || '',
           d.visit?.outcome || '',
           d.visit?.note || '',
           Number(d.subtotal || 0).toFixed(2),
@@ -142,7 +141,7 @@ r.get('/deliveries.csv', async (req, res) => {
         d.box?._id || '',
         d.box?.label || '',
         d.box?.size || '',
-        d.visit?.rep?.name || d.repName || '',
+        d.visit?.rep?.name || d.rep?.name || d.repName || '',
         d.visit?.outcome || '',
         d.visit?.note || ''
       ].map(csvEscape);
@@ -282,17 +281,18 @@ r.get('/reps.csv', async (req, res) => {
     }
 
     // Money and boxes come from deliveries
-    const withoutVisit = [];
+    const nameOnly = [];
     for (const d of deliveries) {
-      if (!d.visit?.rep) { withoutVisit.push(d); continue; }
-      const agg = forRep(d.visit.rep);
-      agg.visits.add(String(d.visit._id));
+      const rep = d.visit?.rep || d.rep;
+      if (!rep) { nameOnly.push(d); continue; }
+      const agg = forRep(rep);
+      if (d.visit?._id) agg.visits.add(String(d.visit._id));
       addDelivery(agg, d);
     }
 
-    // Deliveries without a visit only carry a name: add them to the rep with
+    // Older visit-less deliveries only carry a name: add them to the rep with
     // that name if there is exactly one, otherwise to a row without a RepID.
-    for (const d of withoutVisit) {
+    for (const d of nameOnly) {
       const name = d.repName || 'Unknown';
       const matches = [...perRep.values()].filter(a => a.repId && a.repName === name);
       addDelivery(matches.length === 1 ? matches[0] : statsFor(`name:${name}`, '', name), d);
@@ -366,7 +366,7 @@ r.get('/location-history.csv', async (req, res) => {
         d.location?.name || '',
         d.visit?._id || '',
         d.deliveredAt ? new Date(d.deliveredAt).toISOString() : '',
-        d.visit?.rep?.name || d.repName || '',
+        d.visit?.rep?.name || d.rep?.name || d.repName || '',
         d.visit?.outcome || '',
         d.visit?.note || '',
         d._id,

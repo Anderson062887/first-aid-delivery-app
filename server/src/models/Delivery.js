@@ -14,6 +14,9 @@ const DeliveryLineSchema = new mongoose.Schema(
 
 const DeliverySchema = new mongoose.Schema(
   {
+    // Who the delivery counts for: the visit's rep, or whoever recorded it.
+    // Older deliveries may only have repName.
+    rep: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     repName: { type: String, trim: true },
     deliveredAt: { type: Date, default: Date.now },
     location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },

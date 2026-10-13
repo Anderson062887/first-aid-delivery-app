@@ -3,6 +3,7 @@ import Delivery from '../models/Delivery.js';
 import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { isAdmin } from '../middleware/auth.js';
+import { repDeliveriesFilter } from '../utils/repDeliveries.js';
 
 const r = Router();
 
@@ -12,11 +13,8 @@ function scopeFor(user) {
   return isAdmin(user) ? null : { repId: user._id, repName: user.name };
 }
 
-// A rep's deliveries: those on their visits, plus visit-less ones recorded under their name
 async function restrictDeliveries(q, scope) {
-  if (!scope) return;
-  const visitIds = await Visit.find({ rep: scope.repId }).distinct('_id');
-  q.$or = [{ visit: { $in: visitIds } }, { visit: null, repName: scope.repName }];
+  if (scope) Object.assign(q, await repDeliveriesFilter(scope.repId, scope.repName));
 }
 
 async function loadDeliveries({ from, to, location, tz, scope }) {
@@ -30,6 +28,7 @@ async function loadDeliveries({ from, to, location, tz, scope }) {
   const rows = await Delivery.find(q)
     .sort({ deliveredAt: -1 })
     .populate({ path: 'visit', populate: { path: 'rep', select: 'name' } })
+    .populate('rep', 'name')
     .populate('location', 'name')
     .populate('box', 'label size')
     .populate('lines.item', 'name') // item name
@@ -121,7 +120,7 @@ r.get('/rep-productivity', async (req, res) => {
 
     // Money and boxes come from deliveries
     for (const d of deliveries) {
-      const agg = statsFor(d.visit?.rep?.name || d.repName || 'Unknown');
+      const agg = statsFor(d.visit?.rep?.name || d.rep?.name || d.repName || 'Unknown');
       if (d.visit?._id) agg.visitIds.add(String(d.visit._id));
       agg.deliveries += 1;
       agg.lineItems  += Array.isArray(d.lines) ? d.lines.length : 0;

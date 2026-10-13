@@ -7,6 +7,7 @@ import Box from '../models/Box.js';
 import { isAdmin } from '../middleware/auth.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
+import { repDeliveriesFilter } from '../utils/repDeliveries.js';
 import { validIdParam } from '../middleware/validateIds.js';
 
 // Must match the client (ItemPicker/Cart): a case costs pricePerPack,
@@ -31,7 +32,7 @@ function paging(q) {
 /**
  * Build the Mongo filter shared by the list endpoints. Ids are cast to ObjectId
  * so the same filter works in both find() and aggregate().
- * Returns { query }, { error } (bad input) or { empty: true } (nothing can match).
+ * Returns { query } or { error } (bad input).
  */
 async function buildListQuery(q) {
   const { location, from, to, repId, repName, visit } = q;
@@ -51,10 +52,7 @@ async function buildListQuery(q) {
 
   // Filter by rep
   if (repId) {
-    const visits = await Visit.find({ rep: oid(repId) }, { _id: 1 }).lean();
-    const vIds = visits.map(v => v._id);
-    if (vIds.length === 0) return { empty: true };
-    query.visit = query.visit ? { $eq: query.visit, $in: vIds } : { $in: vIds };
+    query.$and = [await repDeliveriesFilter(oid(repId))];
   } else if (repName && String(repName).trim()) {
     query.repName = { $regex: escapeRegex(String(repName).trim()), $options: 'i' };
   }
@@ -65,9 +63,8 @@ async function buildListQuery(q) {
 r.get('/', async (req, res) => {
   try {
     const { page, limit } = paging(req.query);
-    const { query, error, empty } = await buildListQuery(req.query);
+    const { query, error } = await buildListQuery(req.query);
     if (error) return res.status(400).json({ error });
-    if (empty) return res.json({ data: [], pageInfo: { page, limit, total: 0, hasMore: false } });
 
     const total = await Delivery.countDocuments(query);
     const data = await Delivery.find(query)
@@ -99,9 +96,8 @@ r.get('/', async (req, res) => {
 r.get('/by-visit', async (req, res) => {
   try {
     const { page, limit } = paging(req.query);
-    const { query, error, empty } = await buildListQuery(req.query);
+    const { query, error } = await buildListQuery(req.query);
     if (error) return res.status(400).json({ error });
-    if (empty) return res.json({ data: [], pageInfo: { page, limit, total: 0, hasMore: false } });
 
     const [result] = await Delivery.aggregate([
       { $match: query },
@@ -182,6 +178,7 @@ r.post('/', async (req, res) => {
 
     // --- rep name: from visit.rep if provided, otherwise from the logged-in user ---
     let repName = req.user?.name || '';
+    let rep = req.user?._id;
     if (visit) {
       const vdoc = await Visit.findById(visit).populate('rep', 'name').lean();
       if (!vdoc) return res.status(400).json({ error: 'Visit not found' });
@@ -194,6 +191,7 @@ r.post('/', async (req, res) => {
       if (String(vdoc.location) !== String(location)) {
         return res.status(400).json({ error: 'The visit is for a different location' });
       }
+      if (vdoc.rep?._id) rep = vdoc.rep._id;
       if (vdoc.rep?.name) repName = vdoc.rep.name;
     }
 
@@ -260,6 +258,7 @@ r.post('/', async (req, res) => {
     const total = Math.round((subtotal + tax) * 100) / 100;
 
     const created = await Delivery.create({
+      rep,
       repName,
       deliveredAt: deliveredAt ? new Date(deliveredAt) : new Date(),
       location,
