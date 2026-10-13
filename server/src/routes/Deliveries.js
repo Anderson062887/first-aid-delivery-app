@@ -7,7 +7,7 @@ import Box from '../models/Box.js';
 import { isAdmin } from '../middleware/auth.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
-import { repDeliveriesFilter } from '../utils/repDeliveries.js';
+import { repDeliveriesFilter, isOwnDelivery } from '../utils/repDeliveries.js';
 import { validIdParam } from '../middleware/validateIds.js';
 
 // Must match the client (ItemPicker/Cart): a case costs pricePerPack,
@@ -34,8 +34,10 @@ function paging(q) {
  * so the same filter works in both find() and aggregate().
  * Returns { query } or { error } (bad input).
  */
-async function buildListQuery(q) {
-  const { location, from, to, repId, repName, visit } = q;
+async function buildListQuery(q, user) {
+  const { location, from, to, repName, visit } = q;
+  // Reps only ever see their own deliveries; admins can pick any rep
+  const repId = isAdmin(user) ? q.repId : user?._id;
   const query = {};
 
   for (const [name, id] of [['location', location], ['visit', visit], ['repId', repId]]) {
@@ -52,7 +54,7 @@ async function buildListQuery(q) {
 
   // Filter by rep
   if (repId) {
-    query.$and = [await repDeliveriesFilter(oid(repId))];
+    query.$and = [await repDeliveriesFilter(oid(repId), isAdmin(user) ? undefined : user.name)];
   } else if (repName && String(repName).trim()) {
     query.repName = { $regex: escapeRegex(String(repName).trim()), $options: 'i' };
   }
@@ -63,7 +65,7 @@ async function buildListQuery(q) {
 r.get('/', async (req, res) => {
   try {
     const { page, limit } = paging(req.query);
-    const { query, error } = await buildListQuery(req.query);
+    const { query, error } = await buildListQuery(req.query, req.user);
     if (error) return res.status(400).json({ error });
 
     const total = await Delivery.countDocuments(query);
@@ -96,7 +98,7 @@ r.get('/', async (req, res) => {
 r.get('/by-visit', async (req, res) => {
   try {
     const { page, limit } = paging(req.query);
-    const { query, error } = await buildListQuery(req.query);
+    const { query, error } = await buildListQuery(req.query, req.user);
     if (error) return res.status(400).json({ error });
 
     const [result] = await Delivery.aggregate([
@@ -392,7 +394,10 @@ r.get('/:id', async (req, res) => {
         ],
       });
 
-    if (!d) return res.status(404).json({ error: 'Delivery not found' });
+    // Another rep's delivery looks the same as a missing one
+    if (!d || (!isAdmin(req.user) && !isOwnDelivery(req.user, d))) {
+      return res.status(404).json({ error: 'Delivery not found' });
+    }
     res.json(d);
   } catch (err) {
     console.error('Get delivery failed:', err);

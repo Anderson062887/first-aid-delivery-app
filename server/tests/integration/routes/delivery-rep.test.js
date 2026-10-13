@@ -65,4 +65,41 @@ describe('deliveries record the rep account', () => {
     const list = await request(app).get(`/api/deliveries?repId=${admin._id}`).set('Cookie', authCookie(admin)).expect(200);
     expect(list.body.data.map(d => d.total)).toEqual([5]);
   });
+
+  describe('reps only see their own deliveries', () => {
+    let mine, theirs, theirVisit;
+    beforeEach(async () => {
+      mine = (await record(samA, {}, 1)).body;
+      theirVisit = await createVisit(Visit, samB._id, location._id);
+      theirs = (await record(samB, { visit: String(theirVisit._id) }, 3)).body;
+    });
+    const get = (user, url) => request(app).get(url).set('Cookie', authCookie(user));
+
+    it('in the list and the grouped list, even when asking for another rep', async () => {
+      const list = await get(samA, '/api/deliveries').expect(200);
+      expect(list.body.data.map(d => d._id)).toEqual([mine._id]);
+
+      const grouped = await get(samA, '/api/deliveries/by-visit').expect(200);
+      expect(grouped.body.data.map(g => g.deliveryId)).toEqual([mine._id]);
+
+      const sneaky = await get(samA, `/api/deliveries?repId=${samB._id}`).expect(200);
+      expect(sneaky.body.data.map(d => d._id)).toEqual([mine._id]);
+
+      const otherVisit = await get(samA, `/api/deliveries?visit=${theirVisit._id}`).expect(200);
+      expect(otherVisit.body.data).toEqual([]);
+    });
+
+    it("another rep's delivery is a 404; their own still loads", async () => {
+      await get(samA, `/api/deliveries/${theirs._id}`).expect(404);
+      await get(samA, `/api/deliveries/${mine._id}`).expect(200);
+      await get(samB, `/api/deliveries?visit=${theirVisit._id}`).expect(200)
+        .then(res => expect(res.body.data).toHaveLength(1));
+    });
+
+    it('admins still see everyone', async () => {
+      const list = await get(admin, '/api/deliveries').expect(200);
+      expect(list.body.data).toHaveLength(2);
+      await get(admin, `/api/deliveries/${theirs._id}`).expect(200);
+    });
+  });
 });

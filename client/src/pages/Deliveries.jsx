@@ -23,7 +23,7 @@ export default function Deliveries() {
   const [from, setFrom]         = useState('');
   const [to, setTo]             = useState('');
   const [repId, setRepId]       = useState('');   // used only by admin
-  const [repName, setRepName]   = useState('');   // available to everyone
+  const [repName, setRepName]   = useState('');   // used only by admin
   const [limit, setLimit]       = useState(25);
   const [page, setPage]         = useState(1);
 
@@ -62,7 +62,7 @@ export default function Deliveries() {
         const arr = await usersApi.list();  // returns [] if anything goes wrong
         if (!cancelled) setReps(Array.isArray(arr) ? arr : []);
       } else {
-        // non-admin: do nothing (can see all deliveries); they can filter by repName
+        // non-admin: the server only returns their own deliveries
         if (!cancelled) { setReps([]); setRepId(''); }
       }
     }
@@ -84,13 +84,10 @@ export default function Deliveries() {
           page,
           limit
         };
-        // Admins can filter by specific rep or by name
+        // Admins can filter by specific rep or by name; reps only get their own
         if (isAdmin) {
           if (repId) filters.repId = repId;
           else if (repName) filters.repName = repName;
-        } else {
-          // Reps: do NOT force repId; allow seeing all. They can filter by repName if desired.
-          if (repName) filters.repName = repName;
         }
 
         const res = await api.deliveries.listByVisit(filters); // { data, pageInfo }
@@ -132,7 +129,7 @@ export default function Deliveries() {
 
   return (
     <div>
-      <h2>Deliveries</h2>
+      <h2>{isAdmin ? 'Deliveries' : 'My Deliveries'}</h2>
 
       {/* Filters */}
       <div className="card" style={{ display: 'grid', gap: 16 }}>
@@ -173,38 +170,35 @@ export default function Deliveries() {
         </div>
 
         <div className="row">
-          <div>
-            <label>Rep (by user)</label>
-            {isAdmin ? (
-              <select
-                className="input"
-                value={repId}
-                onChange={(e) => { setRepId(e.target.value); setPage(1); }}
-              >
-                <option value="">Any</option>
-                {(Array.isArray(reps) ? reps : []).map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name} ({(u.roles || []).join(', ') || '—'})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="input" style={{ display:'flex', alignItems:'center', height:'38px' }}>
-                All reps
+          {isAdmin && (
+            <>
+              <div>
+                <label>Rep (by user)</label>
+                <select
+                  className="input"
+                  value={repId}
+                  onChange={(e) => { setRepId(e.target.value); setPage(1); }}
+                >
+                  <option value="">Any</option>
+                  {(Array.isArray(reps) ? reps : []).map((u) => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} ({(u.roles || []).join(', ') || '—'})
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
 
-          <div>
-            <label>Rep name contains</label>
-            <input
-              className="input"
-              placeholder="e.g. Maria"
-              value={repName}
-              onChange={(e) => { setRepName(e.target.value); setPage(1); }}
-              disabled={false /* reps can filter by name too */}
-            />
-          </div>
+              <div>
+                <label>Rep name contains</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Maria"
+                  value={repName}
+                  onChange={(e) => { setRepName(e.target.value); setPage(1); }}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label>Page size</label>

@@ -17,3 +17,17 @@ export async function repDeliveriesFilter(repId, repName) {
   if (name) or.push({ visit: null, rep: null, repName: name });
   return { $or: or };
 }
+
+const idOf = (x) => String(x?._id ?? x ?? '');
+
+/**
+ * Whether a delivery belongs to this user (same rules as repDeliveriesFilter).
+ * `d.visit` must be populated with its rep when present.
+ */
+export function isOwnDelivery(user, d) {
+  const me = idOf(user?._id);
+  if (!me) return false;
+  if (d.rep) return idOf(d.rep) === me;
+  if (d.visit) return idOf(d.visit.rep) === me;
+  return !!d.repName && d.repName === user.name;
+}
