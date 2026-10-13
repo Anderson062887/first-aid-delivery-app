@@ -3,11 +3,21 @@ import Item from '../models/Item.js';
 import Delivery from '../models/Delivery.js';
 import { requireRoles } from '../middleware/auth.js';
 import { validIdParam } from '../middleware/validateIds.js';
+import { escapeRegex } from '../utils/regex.js';
 
 // "Item validation failed: unitsPerPack: ..." -> just the field's message
 function validationMessage(e) {
   const first = e?.name === 'ValidationError' ? Object.values(e.errors || {})[0] : null;
   return first?.message || e?.message;
+}
+
+// SKUs are unique (ignoring case and surrounding spaces); an empty SKU is allowed on any number of items
+async function skuTaken(sku, exceptId) {
+  const clean = typeof sku === 'string' ? sku.trim() : '';
+  if (!clean) return false;
+  const query = { sku: { $regex: `^${escapeRegex(clean)}$`, $options: 'i' } };
+  if (exceptId) query._id = { $ne: exceptId };
+  return !!(await Item.exists(query));
 }
 
 const r = Router();
@@ -51,6 +61,7 @@ r.post('/', requireRoles('admin'), async (req, res) => {
     const { name,sku,packaging = 'each', unitsPerPack = 1, pricePerPack } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (pricePerPack == null) return res.status(400).json({ error: 'pricePerPack is required' });
+    if (await skuTaken(sku)) return res.status(409).json({ error: `Another item already uses SKU "${String(sku).trim()}"` });
 
     const it = await Item.create({ name, sku,packaging, unitsPerPack, pricePerPack });
     res.status(201).json(it);
@@ -71,7 +82,14 @@ r.patch('/:id', requireRoles('admin'), async (req, res) => {
 
     const { name, sku, packaging, unitsPerPack, pricePerPack, active } = req.body || {};
     if (name !== undefined) it.name = name;
-    if (sku !== undefined) it.sku = sku;
+    if (sku !== undefined) {
+      // Only check when the SKU changes, so items that already share one can still be edited
+      const changed = String(sku ?? '').trim().toLowerCase() !== String(it.sku ?? '').trim().toLowerCase();
+      if (changed && await skuTaken(sku, it._id)) {
+        return res.status(409).json({ error: `Another item already uses SKU "${String(sku).trim()}"` });
+      }
+      it.sku = sku;
+    }
     if (packaging !== undefined) it.packaging = packaging;
     if (unitsPerPack !== undefined) it.unitsPerPack = unitsPerPack;
     if (pricePerPack !== undefined) it.pricePerPack = pricePerPack;

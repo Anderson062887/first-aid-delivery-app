@@ -36,3 +36,42 @@ describe('Items API: unitsPerPack', () => {
     expect(res.body.unitsPerPack).toBe(1);
   });
 });
+
+describe('Items API: unique SKU', () => {
+  let cookie, gauze;
+  beforeEach(async () => {
+    cookie = authCookie(await createUser(User, { roles: ['admin'] }));
+    gauze = await createItem(Item, { name: 'Gauze', sku: 'GZ-10' });
+  });
+  const create = (sku) => request(app).post('/api/items').set('Cookie', cookie)
+    .send({ name: 'Other', pricePerPack: 1, sku });
+
+  it('rejects a SKU another item uses, ignoring case and spaces', async () => {
+    const res = await create(' gz-10 ').expect(409);
+    expect(res.body.error).toMatch(/GZ-10|gz-10/);
+    await create('GZ-11').expect(201);
+  });
+
+  it('allows any number of items without a SKU', async () => {
+    await create('').expect(201);
+    await create('').expect(201);
+    await create(undefined).expect(201);
+  });
+
+  it('checks SKU changes too, but an item can keep its own', async () => {
+    const other = await createItem(Item, { name: 'Tape', sku: 'TP-1' });
+    await request(app).patch(`/api/items/${other._id}`).set('Cookie', cookie).send({ sku: 'GZ-10' }).expect(409);
+    await request(app).patch(`/api/items/${gauze._id}`).set('Cookie', cookie).send({ sku: 'GZ-10', name: 'Gauze 2' }).expect(200);
+  });
+
+  it('items that already share a SKU (older data) can still be edited', async () => {
+    const twin = await createItem(Item, { name: 'Gauze twin', sku: 'GZ-10' });
+    await request(app).patch(`/api/items/${twin._id}`).set('Cookie', cookie)
+      .send({ sku: 'GZ-10', pricePerPack: 12 }).expect(200);
+  });
+
+  it('treats regex characters in a SKU literally', async () => {
+    await createItem(Item, { name: 'Dot', sku: 'A.B' });
+    await create('AxB').expect(201);
+  });
+});

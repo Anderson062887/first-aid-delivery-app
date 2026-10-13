@@ -12,7 +12,10 @@ const r = Router();
 r.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    // Must be plain text (an object here would crash .toLowerCase() or reach the query)
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
 
     const user = await User.findOne({ email: email.toLowerCase().trim(), active: true });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -50,7 +53,9 @@ r.get('/me', async (req, res) => {
 r.post('/register', registerLimiter, authRequired, requireRoles('admin'), async (req, res) => {
   try {
     const { name, email, password, roles = ['rep'] } = req.body || {};
-    if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
+    if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || !name.trim() || !email.trim() || !password) {
+      return res.status(400).json({ error: 'name, email, password required' });
+    }
 
     // Validate roles against the allowed set
     if (!validateRoles(roles) || roles.length === 0) {

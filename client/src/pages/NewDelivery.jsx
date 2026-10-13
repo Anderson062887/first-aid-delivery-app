@@ -7,6 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getVisit, getBoxes, getLocations } from '../cache.js'
 import { useToast } from '../components/ToastContext.jsx'
 import Breadcrumbs from '../components/Breadcrumbs.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
 
 const DRAFT_KEY = 'delivery_draft';
 
@@ -43,14 +44,16 @@ export default function NewDelivery(){
   const draft = loadDraft();
   const hasDraft = draft && !visitId && !boxFixed && draft.lines?.length > 0;
 
-  const [repName, setRepName] = useState(hasDraft ? draft.repName || '' : '');
+  const { user } = useAuth();
+  // The server records the visit's rep, or whoever is logged in; show that
+  const [visitRepName, setVisitRepName] = useState('');
+  const repName = visitRepName || user?.name || '';
   const [locations, setLocations] = useState([]);
   const [boxes, setBoxes] = useState([]);
   const [locationId, setLocationId] = useState(hasDraft ? draft.locationId || '' : '');
   const [boxId, setBoxId] = useState(hasDraft ? draft.boxId || '' : '');
   const [lines, setLines] = useState(hasDraft ? draft.lines || [] : []);
   const [items, setItems] = useState([]);
-  const [repLocked, setRepLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState('');
   const [showDraftBanner, setShowDraftBanner] = useState(hasDraft);
@@ -60,8 +63,8 @@ export default function NewDelivery(){
   // Save draft when form changes (debounced effect)
   const saveCurrentDraft = useCallback(() => {
     if (visitId || boxFixed) return; // Don't save drafts for visit-linked deliveries
-    saveDraft({ repName, locationId, boxId, lines });
-  }, [repName, locationId, boxId, lines, visitId, boxFixed]);
+    saveDraft({ locationId, boxId, lines });
+  }, [locationId, boxId, lines, visitId, boxFixed]);
 
   useEffect(() => {
     const timer = setTimeout(saveCurrentDraft, 500);
@@ -106,13 +109,13 @@ export default function NewDelivery(){
         // try network first
         const { visit } = await visitApi.get(visitId);
         if (cancelled) return;
-        if (visit?.rep?.name) { setRepName(visit.rep.name); setRepLocked(true); }
+        if (visit?.rep?.name) setVisitRepName(visit.rep.name);
         if (visit?.location?._id) setLocationId(visit.location._id);
       } catch {
         // offline: use cached visit
         const v = await getVisit(visitId).catch(()=>null);
         if (cancelled || !v) return;
-        if (v?.rep?.name) { setRepName(v.rep.name); setRepLocked(true); }
+        if (v?.rep?.name) setVisitRepName(v.rep.name);
         if (v?.location?._id) setLocationId(v.location._id);
       }
     })();
@@ -192,7 +195,6 @@ export default function NewDelivery(){
       return;
     }
     clearDraft();
-    setRepName('');
     setLocationId('');
     setBoxId('');
     setLines([]);
@@ -208,7 +210,6 @@ export default function NewDelivery(){
     if (lines.length === 0) { setErr('Add at least one item'); return; }
 
     const payload = {
-      repName,
       location: locationId,
       box: boxId,
       lines: lines.map(l => ({
@@ -264,9 +265,7 @@ export default function NewDelivery(){
             id="rep-name"
             className="input"
             value={repName}
-            onChange={e=>setRepName(e.target.value)}
-            placeholder="Your name"
-            readOnly={repLocked}
+            readOnly
             aria-label="Representative name"
           />
         </div>

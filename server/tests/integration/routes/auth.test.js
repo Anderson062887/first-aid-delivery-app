@@ -272,4 +272,16 @@ describe('Auth API', () => {
       await badLogin('198.51.100.9').expect(401);
     });
   });
+
+  describe('malformed login input', () => {
+    it.each([
+      [{ email: { $gt: '' }, password: 'x' }],
+      [{ email: ['a@b.com'], password: 'x' }],
+      [{ email: 'a@b.com', password: { $ne: null } }],
+      [{ email: '   ', password: 'x' }],
+    ])('returns 400, not 500, for %j', async (body) => {
+      const res = await request(app).post('/api/auth/login').send(body).expect(400);
+      expect(res.body.error).toMatch(/required/);
+    });
+  });
 });
