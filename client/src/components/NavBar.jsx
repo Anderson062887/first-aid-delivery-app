@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { getQueueCount } from '../offline';
+import { getQueueCount, getFailedCount } from '../offline';
 
 function RoleNav() {
   const { user } = useAuth();
@@ -38,7 +38,7 @@ export default function NavBar() {
   const navigate = useNavigate();
 
   async function onLogout() {
-    const pending = getQueueCount();
+    const pending = getQueueCount() + getFailedCount();
     if (pending > 0 && !window.confirm(
       `${pending} change${pending === 1 ? '' : 's'} on this device haven't synced yet. ` +
       `Logging out deletes them. Press Cancel to stay and sync first.`

@@ -6,7 +6,7 @@ export default function SyncToast() {
 
   useEffect(() => {
     // Start the sync loop with progress callback
-    startOfflineSyncLoop({
+    const unsubscribe = startOfflineSyncLoop({
       onFlush: (result) => {
         if (!result) return;
         if (result.done > 0) {
@@ -46,6 +46,7 @@ export default function SyncToast() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };

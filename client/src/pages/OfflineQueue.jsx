@@ -1,16 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isOnline, flushQueue, getQueue, removeFromQueue, clearQueue } from '../offline';
+import {
+  isOnline, flushQueue, getQueue, removeFromQueue, clearQueue,
+  getFailed, removeFailed, retryFailed, onSyncResult
+} from '../offline';
 
 export default function OfflineQueue() {
   const [queue, setQueue] = useState([]);
+  const [failed, setFailed] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState('');
   const [online, setOnline] = useState(isOnline());
   const navigate = useNavigate();
 
-  // Load queue on mount
-  useEffect(() => {
+  function reload() {
     setQueue(getQueue());
+    setFailed(getFailed());
+  }
+
+  // Load on mount, and again after every sync (including background ones)
+  useEffect(() => {
+    reload();
+    return onSyncResult(reload);
   }, []);
 
   // Listen for online/offline
@@ -28,12 +39,14 @@ export default function OfflineQueue() {
   async function handleSync() {
     if (!online) return;
     setSyncing(true);
+    setMessage('');
     try {
       const result = await flushQueue();
-      setQueue(getQueue());
-      if (result.done > 0) {
-        // Show success
-      }
+      reload();
+      if (result.authRequired) setMessage('Your session has expired. Log in again to sync.');
+      else if (result.failed > 0) setMessage(`${result.failed} item${result.failed > 1 ? 's were' : ' was'} rejected by the server. See below.`);
+      else if (result.left > 0) setMessage(`Sent ${result.done}. ${result.left} will be retried.`);
+      else if (result.done > 0) setMessage(`Synced ${result.done} item${result.done > 1 ? 's' : ''}.`);
     } finally {
       setSyncing(false);
     }
@@ -43,6 +56,19 @@ export default function OfflineQueue() {
     if (confirm('Remove this item from queue? Data will be lost.')) {
       removeFromQueue(id);
       setQueue(getQueue());
+    }
+  }
+
+  async function handleRetry(id) {
+    retryFailed(id);
+    reload();
+    if (online) await handleSync();
+  }
+
+  function handleRemoveFailed(id) {
+    if (confirm('Remove this item? Data will be lost.')) {
+      removeFailed(id);
+      reload();
     }
   }
 
@@ -91,6 +117,8 @@ export default function OfflineQueue() {
             ? 'No pending items in the queue.'
             : `${queue.length} item${queue.length > 1 ? 's' : ''} waiting to sync.`}
         </p>
+
+        {message && <p style={{ margin: '0 0 12px', fontWeight: 600 }}>{message}</p>}
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -143,6 +171,53 @@ export default function OfflineQueue() {
                 >
                   Remove
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {failed.length > 0 && (
+        <div className="card" style={{ marginTop: 16, borderColor: '#ffa39e' }}>
+          <h3 style={{ marginTop: 0 }}>Couldn't be saved</h3>
+          <p style={{ marginTop: 0, opacity: 0.8 }}>
+            The server rejected these, so they won't sync on their own. Fix the cause
+            (for example, ask an admin to reopen the visit), then retry, or remove them.
+          </p>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {failed.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  border: '1px solid #ffccc7',
+                  borderRadius: 8,
+                  padding: 12,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600 }}>{getActionLabel(item)}</div>
+                  <div style={{ fontSize: 13, opacity: 0.7 }}>
+                    Queued: {formatTimestamp(item.ts)}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#a8071a', marginTop: 4 }}>
+                    {item.error || `Rejected (HTTP ${item.status})`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn" onClick={() => handleRetry(item.id)} disabled={syncing}
+                    style={{ padding: '4px 8px', fontSize: 12 }}>
+                    Retry
+                  </button>
+                  <button className="btn" onClick={() => handleRemoveFailed(item.id)}
+                    style={{ padding: '4px 8px', fontSize: 12 }}>
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>

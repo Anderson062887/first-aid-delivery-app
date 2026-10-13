@@ -11,7 +11,7 @@ export default function OfflineBanner(){
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
-    startOfflineSyncLoop({
+    const unsubscribe = startOfflineSyncLoop({
       onFlush: (res) => {
         if (res && typeof res.done === 'number') {
           setLastSync({ at: new Date(), pushed: res.done, left: res.left });
@@ -20,6 +20,7 @@ export default function OfflineBanner(){
     });
 
     return () => {
+      unsubscribe();
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };

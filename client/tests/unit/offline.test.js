@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isOnline, enqueue, flushQueue, clearUserData, getQueueCount } from '../../src/offline.js';
+import {
+  isOnline, enqueue, flushQueue, clearUserData, getQueueCount,
+  getFailed, retryFailed, onSyncResult, startOfflineSyncLoop
+} from '../../src/offline.js';
 import { clear as clearIdb } from 'idb-keyval';
 
 describe('offline.js', () => {
@@ -106,7 +109,7 @@ describe('offline.js', () => {
 
       const result = await flushQueue();
 
-      expect(result).toEqual({ done: 1, left: 0 });
+      expect(result).toEqual({ done: 1, left: 0, failed: 0, authRequired: false });
       expect(global.fetch).toHaveBeenNthCalledWith(1, '/api/auth/me', expect.objectContaining({
         credentials: 'include'
       }));
@@ -118,7 +121,7 @@ describe('offline.js', () => {
     it('should return immediately if queue is empty', async () => {
       const result = await flushQueue();
 
-      expect(result).toEqual({ done: 0, left: 0 });
+      expect(result).toEqual({ done: 0, left: 0, failed: 0, authRequired: false });
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -213,9 +216,114 @@ describe('offline.js', () => {
     });
   });
 
+  describe('flushQueue: rejected jobs, expired login, overlapping runs', () => {
+    beforeEach(() => { document.cookie = 'csrf_token=tok123; path=/'; });
+
+    const queue = (...ids) => localStorage.setItem('offlineQueue:v1', JSON.stringify(
+      ids.map(id => ({ id, ts: 1, path: `/api/${id}`, method: 'POST', body: {} }))
+    ));
+    const queued = () => JSON.parse(localStorage.getItem('offlineQueue:v1') || '[]').map(j => j.id);
+    const reply = (status, error) => ({ ok: status < 300, status, json: async () => (error ? { error } : {}) });
+
+    it('moves a job the server rejects out of the queue, with the reason', async () => {
+      queue('a', 'b');
+      global.fetch
+        .mockResolvedValueOnce(reply(409, 'This visit was already submitted'))
+        .mockResolvedValueOnce(reply(201));
+
+      const result = await flushQueue();
+
+      expect(result).toEqual({ done: 1, left: 0, failed: 1, authRequired: false });
+      expect(queued()).toEqual([]);
+      expect(getFailed()).toEqual([expect.objectContaining({
+        id: 'a', status: 409, error: 'This visit was already submitted'
+      })]);
+    });
+
+    it('a retried job goes back in the queue', async () => {
+      queue('a');
+      global.fetch.mockResolvedValueOnce(reply(400, 'Bad data'));
+      await flushQueue();
+
+      retryFailed('a');
+      expect(getFailed()).toEqual([]);
+      expect(queued()).toEqual(['a']);
+      expect(JSON.parse(localStorage.getItem('offlineQueue:v1'))[0]).not.toHaveProperty('error');
+    });
+
+    it('stops on an expired login and keeps every job for after login', async () => {
+      queue('a', 'b');
+      global.fetch.mockResolvedValue(reply(401, 'Session expired'));
+
+      const result = await flushQueue();
+
+      expect(result).toMatchObject({ authRequired: true, left: 2, failed: 0 });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(queued()).toEqual(['a', 'b']);
+    });
+
+    it('keeps jobs on a CSRF error or server trouble, but rejects other 403s', async () => {
+      queue('csrf');
+      global.fetch.mockResolvedValueOnce(reply(403, 'CSRF token invalid'));
+      await flushQueue();
+      expect(queued()).toEqual(['csrf']);
+
+      global.fetch.mockResolvedValueOnce(reply(503));
+      await flushQueue();
+      expect(queued()).toEqual(['csrf']);
+
+      global.fetch.mockResolvedValueOnce(reply(403, "Only the visit's rep can do this"));
+      await flushQueue();
+      expect(queued()).toEqual([]);
+      expect(getFailed().map(j => j.id)).toEqual(['csrf']);
+    });
+
+    it('stops at the first network error, keeping order', async () => {
+      queue('a', 'b');
+      global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+      const result = await flushQueue();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result.left).toBe(2);
+      expect(queued()).toEqual(['a', 'b']);
+    });
+
+    it('overlapping calls share one run, so nothing is sent twice', async () => {
+      queue('a');
+      global.fetch.mockResolvedValue(reply(201));
+      const [r1, r2] = await Promise.all([flushQueue(), flushQueue()]);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(r1).toBe(r2);
+    });
+
+    it('keeps a job queued while a run is sending', async () => {
+      queue('a');
+      global.fetch.mockImplementationOnce(async () => {
+        enqueue({ path: '/api/late', method: 'POST', body: {} });
+        return reply(201);
+      });
+      const result = await flushQueue();
+      expect(result).toMatchObject({ done: 1, left: 1 });
+      expect(JSON.parse(localStorage.getItem('offlineQueue:v1')).map(j => j.path)).toEqual(['/api/late']);
+    });
+
+    it('tells every subscriber about each run', async () => {
+      const a = vi.fn(); const b = vi.fn();
+      const offA = startOfflineSyncLoop({ onFlush: a });
+      const offB = onSyncResult(b);
+      queue('x');
+      global.fetch.mockResolvedValue(reply(201));
+      await flushQueue();
+      await Promise.resolve();
+      expect(a).toHaveBeenCalledWith(expect.objectContaining({ done: 1 }));
+      expect(b).toHaveBeenCalledWith(expect.objectContaining({ done: 1 }));
+      offA(); offB();
+    });
+  });
+
   describe('clearUserData (logout)', () => {
     it("removes the queue, cached lists, drafts and the service worker's API caches", async () => {
       enqueue({ path: '/api/deliveries', method: 'POST', body: {} });
+      localStorage.setItem('offlineFailed:v1', '[{"id":"f"}]');
       localStorage.setItem('cache:items:v1', '[]');
       localStorage.setItem('cache:boxes:l1:v1', '[]');
       localStorage.setItem('selectedRepId', 'u1');
@@ -230,6 +338,7 @@ describe('offline.js', () => {
       await clearUserData();
 
       expect(getQueueCount()).toBe(0);
+      expect(getFailed()).toEqual([]);
       expect(Object.keys(localStorage.store).sort()).toEqual(['offlineQueue:v1', 'unrelated']);
       expect(sessionStorage.getItem('delivery_draft')).toBeNull();
       expect(clearIdb).toHaveBeenCalled();
