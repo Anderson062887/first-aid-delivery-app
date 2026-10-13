@@ -45,6 +45,13 @@ describe('deliveries record the rep account', () => {
     const mine = await request(app).get('/api/reports/rep-productivity').set('Cookie', authCookie(samA)).expect(200);
     expect(mine.body.rows).toEqual([expect.objectContaining({ total: 10 })]);
 
+    // Admin chart: one row per account, not merged by name
+    const all = await request(app).get('/api/reports/rep-productivity').set('Cookie', authCookie(admin)).expect(200);
+    const sams = all.body.rows.filter(r => r.repName === 'Sam');
+    expect(Object.fromEntries(sams.map(r => [r.repId, r.total])))
+      .toEqual({ [String(samA._id)]: 10, [String(samB._id)]: 30 });
+    expect(sams.map(r => r.repEmail).sort()).toEqual(['sam.a@example.com', 'sam.b@example.com']);
+
     // reps.csv: two rows with their own RepIDs, nothing left without one
     const csv = await request(app).get('/api/exports/reps.csv').set('Cookie', authCookie(admin)).expect(200);
     const rows = csv.text.trim().split('\n').slice(1).map(l => l.split(','));

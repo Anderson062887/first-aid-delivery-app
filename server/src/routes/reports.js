@@ -27,8 +27,8 @@ async function loadDeliveries({ from, to, location, tz, scope }) {
   // Populate what we need for charts
   const rows = await Delivery.find(q)
     .sort({ deliveredAt: -1 })
-    .populate({ path: 'visit', populate: { path: 'rep', select: 'name' } })
-    .populate('rep', 'name')
+    .populate({ path: 'visit', populate: { path: 'rep', select: 'name email' } })
+    .populate('rep', 'name email')
     .populate('location', 'name')
     .populate('box', 'label size')
     .populate('lines.item', 'name') // item name
@@ -51,7 +51,7 @@ async function loadSubmittedVisits({ from, to, location, tz, scope }) {
   if (location) q.location = location;
   if (scope) q.rep = scope.repId;
 
-  return Visit.find(q).populate('rep', 'name').lean();
+  return Visit.find(q).populate('rep', 'name email').lean();
 }
 
 /**
@@ -101,11 +101,14 @@ r.get('/rep-productivity', async (req, res) => {
       loadSubmittedVisits({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) })
     ]);
 
-    const perRep = new Map(); // repName -> stats
-    const statsFor = (repName) => {
-      if (!perRep.has(repName)) {
-        perRep.set(repName, {
+    // Group by rep account, so two reps with the same name stay separate
+    const perRep = new Map(); // key -> stats
+    const statsFor = (key, repId, repName, repEmail = '') => {
+      if (!perRep.has(key)) {
+        perRep.set(key, {
+          repId,
           repName,
+          repEmail,
           visitIds: new Set(),
           deliveries: 0,
           lineItems: 0,
@@ -115,30 +118,47 @@ r.get('/rep-productivity', async (req, res) => {
           outcomes: emptyOutcomes()
         });
       }
-      return perRep.get(repName);
+      return perRep.get(key);
     };
-
-    // Money and boxes come from deliveries
-    for (const d of deliveries) {
-      const agg = statsFor(d.visit?.rep?.name || d.rep?.name || d.repName || 'Unknown');
-      if (d.visit?._id) agg.visitIds.add(String(d.visit._id));
+    const forRep = (rep) => statsFor(String(rep?._id || rep), String(rep?._id || rep || ''), rep?.name || 'Unknown', rep?.email || '');
+    const addDelivery = (agg, d) => {
       agg.deliveries += 1;
       agg.lineItems  += Array.isArray(d.lines) ? d.lines.length : 0;
       agg.subtotal   += Number(d.subtotal || 0);
       agg.tax        += Number(d.tax || 0);
       agg.total      += Number(d.total || 0);
-    }
+    };
 
     // Outcomes come from submitted visits (one count per visit)
     for (const v of visits) {
-      const agg = statsFor(v.rep?.name || 'Unknown');
+      const agg = forRep(v.rep);
       agg.visitIds.add(String(v._id));
       agg.outcomes[outcomeKey(v.outcome)]++;
     }
 
+    // Money and boxes come from deliveries
+    const nameOnly = [];
+    for (const d of deliveries) {
+      const rep = d.visit?.rep || d.rep;
+      if (!rep) { nameOnly.push(d); continue; }
+      const agg = forRep(rep);
+      if (d.visit?._id) agg.visitIds.add(String(d.visit._id));
+      addDelivery(agg, d);
+    }
+
+    // Older visit-less deliveries only carry a name: add them to the rep with
+    // that name if there is exactly one, otherwise to a row without a repId.
+    for (const d of nameOnly) {
+      const name = d.repName || 'Unknown';
+      const matches = [...perRep.values()].filter(a => a.repId && a.repName === name);
+      addDelivery(matches.length === 1 ? matches[0] : statsFor(`name:${name}`, '', name), d);
+    }
+
     const rows = Array.from(perRep.values())
       .map(v => ({
+        repId: v.repId,
         repName: v.repName,
+        repEmail: v.repEmail,
         visitCount: v.visitIds.size,
         deliveries: v.deliveries,
         lineItems: v.lineItems,

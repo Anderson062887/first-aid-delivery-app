@@ -75,7 +75,11 @@ export default function Dashboard(){
         if (cancelled) return;
 
         setItemsData((items.rows || []).map(r => ({ name: r.name, quantity: r.quantity, amount: Number(r.amount).toFixed(2) })));
-        setRepData((reps.rows || []).map(r => ({ rep: r.repName, total: Number(r.total), visits: r.visitCount, deliveries: r.deliveries })));
+        const repRows = reps.rows || [];
+        // Two reps can share a name: add the email so their bars can be told apart
+        const nameCount = repRows.reduce((m, r) => m.set(r.repName, (m.get(r.repName) || 0) + 1), new Map());
+        const label = (r) => (nameCount.get(r.repName) > 1 && r.repEmail ? `${r.repName} (${r.repEmail})` : r.repName);
+        setRepData(repRows.map(r => ({ rep: label(r), total: Number(r.total), visits: r.visitCount, deliveries: r.deliveries })));
 
         const counts = outs.counts || {};
         const oData = [
