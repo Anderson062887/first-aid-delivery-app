@@ -155,6 +155,15 @@ r.get('/by-visit', async (req, res) => {
 r.post('/', async (req, res) => {
   try {
     const { deliveredAt, location, box, visit, lines: rawLines } = req.body || {};
+    const clientId = typeof req.body?.clientId === 'string' && req.body.clientId.trim()
+      ? req.body.clientId.trim().slice(0, 100)
+      : undefined;
+
+    // --- a retry of a request that was already saved: return that delivery ---
+    if (clientId) {
+      const existing = await Delivery.findOne({ clientId }).populate('location box visit lines.item');
+      if (existing) return res.status(200).json(existing);
+    }
 
     // --- basic validation ---
     if (!location) return res.status(400).json({ error: 'location is required' });
@@ -192,6 +201,12 @@ r.post('/', async (req, res) => {
       }
       if (String(vdoc.location) !== String(location)) {
         return res.status(400).json({ error: 'The visit is for a different location' });
+      }
+      // One delivery per box per visit; changes go through editing that delivery
+      if (await Delivery.exists({ visit, box })) {
+        return res.status(409).json({
+          error: 'This box was already refilled on this visit. Edit that delivery instead.'
+        });
       }
       if (vdoc.rep?._id) rep = vdoc.rep._id;
       if (vdoc.rep?.name) repName = vdoc.rep.name;
@@ -259,18 +274,29 @@ r.post('/', async (req, res) => {
     subtotal = Math.round(subtotal * 100) / 100;
     const total = Math.round((subtotal + tax) * 100) / 100;
 
-    const created = await Delivery.create({
-      rep,
-      repName,
-      deliveredAt: deliveredAt ? new Date(deliveredAt) : new Date(),
-      location,
-      box,
-      visit: visit || null,
-      lines: hydrated,
-      subtotal,
-      tax,
-      total
-    });
+    let created;
+    try {
+      created = await Delivery.create({
+        clientId,
+        rep,
+        repName,
+        deliveredAt: deliveredAt ? new Date(deliveredAt) : new Date(),
+        location,
+        box,
+        visit: visit || null,
+        lines: hydrated,
+        subtotal,
+        tax,
+        total
+      });
+    } catch (e) {
+      // The same request arrived twice at once: the other one saved it
+      if (e?.code === 11000 && clientId) {
+        const existing = await Delivery.findOne({ clientId }).populate('location box visit lines.item');
+        if (existing) return res.status(200).json(existing);
+      }
+      throw e;
+    }
 
     const doc = await Delivery.findById(created._id)
       .populate('location box visit lines.item');

@@ -140,6 +140,11 @@ async function fetchDeliveryList(path, filters) {
   return res.json(); // { data, pageInfo }
 }
 
+function newClientId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `d_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
 export const api = {
   health: () => http('/health'),
   items: {
@@ -244,7 +249,9 @@ export const api = {
   listByVisit: (filters = {}) => fetchDeliveryList('/api/deliveries/by-visit', filters),
 
   // OFFLINE-AWARE create
-  create: (payload) => postWithOffline('/api/deliveries', payload),
+  // The clientId travels with the request (and with its offline-queue copy),
+  // so if it's ever sent twice the server keeps only one delivery.
+  create: (payload) => postWithOffline('/api/deliveries', { clientId: newClientId(), ...payload }),
 
   one: async (id) => {
     const res = await fetch(`/api/deliveries/${id}`, { credentials: 'include' });

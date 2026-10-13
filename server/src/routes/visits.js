@@ -30,6 +30,31 @@ async function loadVisitForChange(req, res) {
   return v;
 }
 
+// Like loadVisitForChange, but a rep can't edit a visit once it's submitted
+async function loadOpenVisitForEdit(req, res) {
+  const v = await loadVisitForChange(req, res);
+  if (v && v.status === 'submitted' && !isAdmin(req.user)) {
+    res.status(403).json({ error: 'This visit was already submitted. Ask an admin to make changes.' });
+    return null;
+  }
+  return v;
+}
+
+// Boxes of the visit's location that have no delivery on this visit
+async function missingBoxes(v) {
+  const boxes = await Box.find({ location: v.location, ...ACTIVE_BOX });
+  const deliveries = await Delivery.find({ visit: v._id });
+  const covered = new Set(deliveries.map(d => String(d.box)));
+  return boxes.filter(b => !covered.has(String(b._id)));
+}
+
+function incompleteResponse(res, missing) {
+  return res.status(400).json({
+    error: 'All boxes must be refilled before submitting a COMPLETED visit',
+    missingBoxes: missing.map(b => ({ id: b._id, label: b.label }))
+  });
+}
+
 /**
  * GET /api/visits
  * Query (all optional):
@@ -223,7 +248,7 @@ r.get('/:id', async (req,res)=>{
 });
 
 r.patch('/:id/note', async (req, res) => {
-  const v = await loadVisitForChange(req, res);
+  const v = await loadOpenVisitForEdit(req, res);
   if (!v) return;
   v.note = String(req.body?.note || '');
   await v.save();
@@ -233,7 +258,7 @@ r.patch('/:id/note', async (req, res) => {
 // General update for visit (note and/or outcome)
 r.patch('/:id', async (req, res) => {
   try {
-    const v = await loadVisitForChange(req, res);
+    const v = await loadOpenVisitForEdit(req, res);
     if (!v) return;
 
     const { note, outcome } = req.body || {};
@@ -246,6 +271,11 @@ r.patch('/:id', async (req, res) => {
       const allowed = ['completed', 'partial', 'no_access', 'skipped'];
       if (!allowed.includes(outcome)) {
         return res.status(400).json({ error: `Invalid outcome. Use one of: ${allowed.join(', ')}` });
+      }
+      // Same rule as submitting: "completed" means every box was refilled
+      if (outcome === 'completed' && v.outcome !== 'completed') {
+        const missing = await missingBoxes(v);
+        if (missing.length) return incompleteResponse(res, missing);
       }
       v.outcome = outcome;
     }
@@ -274,16 +304,8 @@ r.post('/:id/submit', async (req,res)=>{
 
   // Only enforce coverage if outcome is "completed"
   if (outcome === 'completed') {
-    const boxes = await Box.find({ location: v.location, ...ACTIVE_BOX });
-    const deliveries = await Delivery.find({ visit: v._id });
-    const covered = new Set(deliveries.map(d=> String(d.box)));
-    const missing = boxes.filter(b => !covered.has(String(b._id)));
-    if(missing.length){
-      return res.status(400).json({
-        error: 'All boxes must be refilled before submitting a COMPLETED visit',
-        missingBoxes: missing.map(b => ({ id: b._id, label: b.label }))
-      });
-    }
+    const missing = await missingBoxes(v);
+    if (missing.length) return incompleteResponse(res, missing);
   }
 
   v.status = 'submitted';

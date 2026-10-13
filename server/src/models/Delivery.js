@@ -18,6 +18,11 @@ const DeliverySchema = new mongoose.Schema(
     // Older deliveries may only have repName.
     rep: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     repName: { type: String, trim: true },
+    // Random id the app sends with each new delivery. A retry of the same
+    // request (e.g. the reply was lost and the offline queue resent it) carries
+    // the same id, so the server can return the first delivery instead of
+    // creating a second one.
+    clientId: { type: String, trim: true, unique: true, sparse: true },
     deliveredAt: { type: Date, default: Date.now },
     location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },
     box: { type: mongoose.Schema.Types.ObjectId, ref: 'Box', required: true },

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   isOnline, enqueue, flushQueue, clearUserData, getQueueCount,
-  getFailed, retryFailed, onSyncResult, startOfflineSyncLoop
+  getFailed, retryFailed, onSyncResult, startOfflineSyncLoop, queuedBoxIdsForVisit
 } from '../../src/offline.js';
 import { clear as clearIdb } from 'idb-keyval';
 
@@ -317,6 +317,16 @@ describe('offline.js', () => {
       expect(a).toHaveBeenCalledWith(expect.objectContaining({ done: 1 }));
       expect(b).toHaveBeenCalledWith(expect.objectContaining({ done: 1 }));
       offA(); offB();
+    });
+  });
+
+  describe('queuedBoxIdsForVisit', () => {
+    it("lists the boxes with a queued delivery for that visit only", () => {
+      enqueue({ path: '/api/deliveries', method: 'POST', body: { visit: 'v1', box: 'b1' } });
+      enqueue({ path: '/api/deliveries', method: 'POST', body: { visit: 'v2', box: 'b2' } });
+      enqueue({ path: '/api/deliveries/d9', method: 'PATCH', body: { visit: 'v1', box: 'b3' } });
+      enqueue({ path: '/api/visits/v1/submit', method: 'POST', body: { outcome: 'completed' } });
+      expect([...queuedBoxIdsForVisit('v1')]).toEqual(['b1']);
     });
   });
 

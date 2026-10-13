@@ -86,6 +86,16 @@ export function enqueue(req) {
   saveQueue(q);
 }
 
+// Boxes with a delivery for this visit that's still waiting in the queue
+export function queuedBoxIdsForVisit(visitId) {
+  return new Set(
+    loadQueue()
+      .filter(j => j.path === '/api/deliveries' && (j.method || 'POST') === 'POST'
+        && String(j.body?.visit) === String(visitId) && j.body?.box)
+      .map(j => String(j.body.box))
+  );
+}
+
 // ---- Jobs the server rejected -------------------------------------------
 // A job the server refuses (e.g. 400 bad data, 403 not allowed, 409 visit
 // already submitted) will never succeed by retrying, so it leaves the queue.

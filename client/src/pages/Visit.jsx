@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import { cacheVisit, cacheBoxes, cacheItems, getBoxes } from '../cache.js';
+import { queuedBoxIdsForVisit, onSyncResult } from '../offline';
 
 const outcomeKind = (o) =>
   o === 'completed' ? 'completed' :
@@ -25,6 +26,13 @@ export default function Visit(){
   const [visit, setVisit] = useState(null);
   const [boxes, setBoxes] = useState([]);
   const [deliveredIds, setDeliveredIds] = useState(new Set());
+  // Boxes refilled on this device but not synced yet: they count as refilled,
+  // so the rep doesn't refill them twice and can still complete the visit offline
+  const [queuedIds, setQueuedIds] = useState(() => queuedBoxIdsForVisit(id));
+  const [syncCount, setSyncCount] = useState(0);
+
+  // After each sync, queued deliveries become server deliveries: reload both
+  useEffect(() => onSyncResult(() => setSyncCount(n => n + 1)), []);
   const [outcome, setOutcome] = useState('');
   const [note, setNote] = useState('');
   const [loadErr, setLoadErr] = useState(''); // visit could not be loaded: nothing to show
@@ -83,6 +91,7 @@ export default function Visit(){
   // Load deliveries and only count those from THIS visit
   useEffect(() => {
     let cancelled = false;
+    setQueuedIds(queuedBoxIdsForVisit(id));
     (async () => {
       try {
         const r = await fetch(`/api/deliveries?visit=${encodeURIComponent(id)}&limit=200&page=1`, {
@@ -103,14 +112,15 @@ export default function Visit(){
         );
         if (!cancelled) setDeliveredIds(ids);
       } catch {
-        if (!cancelled) setDeliveredIds(new Set());
+        // Offline: keep what we last knew; queued deliveries still count
       }
     })();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, syncCount]);
 
-  // All boxes covered only if each location box appears in deliveredIds
-  const allCovered = boxes.length > 0 && boxes.every(b => deliveredIds.has(String(getBoxId(b))));
+  const isCovered = (bid) => deliveredIds.has(bid) || queuedIds.has(bid);
+  // All boxes covered only if each location box was refilled (saved or queued)
+  const allCovered = boxes.length > 0 && boxes.every(b => isCovered(String(getBoxId(b))));
 
   // Auto-select "completed" outcome when all boxes are filled
   useEffect(() => {
@@ -187,7 +197,8 @@ export default function Visit(){
           <div style={{ display:'grid', gap:8 }}>
             {boxes.map(b => {
               const bid = String(getBoxId(b));
-              const covered = deliveredIds.has(bid);
+              const covered = isCovered(bid);
+              const waiting = !deliveredIds.has(bid) && queuedIds.has(bid);
               return (
                 <div
                   key={bid}
@@ -206,7 +217,7 @@ export default function Visit(){
                     <div style={{ fontWeight:600 }}>{b.label}</div>
                     {b.size && <div style={{ opacity:.8 }}>Size: {b.size}</div>}
                     <div style={{ marginTop:4 }}>
-                      {covered ? '✅ Refilled' : '❌ Not filled'}
+                      {waiting ? '⏳ Refilled (waiting to sync)' : covered ? '✅ Refilled' : '❌ Not filled'}
                     </div>
                   </div>
 

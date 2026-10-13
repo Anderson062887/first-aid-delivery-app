@@ -189,7 +189,23 @@ describe('api.js', () => {
         const result = await api.deliveries.create(payload);
 
         expect(result._offlineQueued).toBe(true);
-        expect(enqueue).toHaveBeenCalledWith({ path: '/api/deliveries', method: 'POST', body: payload });
+        expect(enqueue).toHaveBeenCalledWith({
+          path: '/api/deliveries', method: 'POST',
+          body: { ...payload, clientId: expect.any(String) }
+        });
+        // The request may have reached the server before the connection dropped:
+        // the queued copy carries the same clientId, so the server won't save it twice
+        const sent = JSON.parse(global.fetch.mock.calls[0][1].body);
+        expect(enqueue.mock.calls[0][0].body.clientId).toBe(sent.clientId);
+      });
+
+      it('gives every new delivery its own clientId', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 201, json: () => Promise.resolve({ _id: 'd' }) });
+        await api.deliveries.create({ location: 'l', box: 'b', lines: [] });
+        await api.deliveries.create({ location: 'l', box: 'b', lines: [] });
+        const ids = global.fetch.mock.calls.map(c => JSON.parse(c[1].body).clientId);
+        expect(ids[0]).toBeTruthy();
+        expect(ids[0]).not.toBe(ids[1]);
       });
 
       it('should reject with the server error and NOT queue when the server rejects it', async () => {
