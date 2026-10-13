@@ -30,8 +30,15 @@ function loadQueue() {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
   catch { return []; }
 }
+// Fired whenever the queue or the rejected list changes (e.g. for the menu count)
+export const QUEUE_CHANGED = 'offlinequeue:change';
+function notifyChange() {
+  try { window.dispatchEvent(new Event(QUEUE_CHANGED)); } catch {}
+}
+
 function saveQueue(q) {
   localStorage.setItem(KEY, JSON.stringify(q));
+  notifyChange();
 }
 
 // Get queue for display
@@ -58,6 +65,7 @@ export async function clearUserData() {
   try {
     clearQueue();
     localStorage.removeItem(FAILED_KEY);
+    notifyChange();
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (key?.startsWith('cache:') || key === 'selectedRepId') localStorage.removeItem(key);
@@ -107,6 +115,7 @@ function loadFailed() {
 }
 function saveFailed(list) {
   localStorage.setItem(FAILED_KEY, JSON.stringify(list));
+  notifyChange();
 }
 
 export function getFailed() {

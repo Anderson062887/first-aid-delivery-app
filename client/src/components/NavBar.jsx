@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { getQueueCount, getFailedCount } from '../offline';
+import { getQueueCount, getFailedCount, QUEUE_CHANGED } from '../offline';
 
 function RoleNav() {
   const { user } = useAuth();
@@ -20,14 +20,36 @@ function RoleNav() {
           <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
           <NavLink to="/users" className="btn">Users</NavLink>
           <NavLink to="/locations/new" className="btn">New Location</NavLink>
+          <QueueLink />
         </>
       ) : (
         <>
           <NavLink to="/locations" className="btn">Locations</NavLink>
           <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
+          <QueueLink />
         </>
       )}
     </>
+  );
+}
+
+// Offline Queue link with the number of changes not yet saved on the server
+function QueueLink() {
+  const [counts, setCounts] = useState(() => ({ waiting: getQueueCount(), failed: getFailedCount() }));
+  useEffect(() => {
+    const update = () => setCounts({ waiting: getQueueCount(), failed: getFailedCount() });
+    window.addEventListener(QUEUE_CHANGED, update);
+    window.addEventListener('storage', update); // other tabs
+    return () => {
+      window.removeEventListener(QUEUE_CHANGED, update);
+      window.removeEventListener('storage', update);
+    };
+  }, []);
+  const total = counts.waiting + counts.failed;
+  return (
+    <NavLink to="/offline-queue" className="btn" style={counts.failed ? { color: '#a8071a' } : undefined}>
+      Offline Queue{total > 0 ? ` (${total})` : ''}
+    </NavLink>
   );
 }
 

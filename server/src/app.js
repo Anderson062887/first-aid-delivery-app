@@ -23,8 +23,12 @@ app.set('etag', false);
 // rate limits apply per client instead of to everyone at once. Only loopback is
 // trusted, so clients reaching the port directly cannot spoof their address.
 app.set('trust proxy', 'loopback');
+// The app is served from the same origin as the API (Nginx in production, the
+// Vite proxy in development), so cross-origin requests are refused unless
+// CLIENT_ORIGIN lists the allowed origins (comma-separated).
+const allowedOrigins = (process.env.CLIENT_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || true,
+  origin: allowedOrigins.length ? allowedOrigins : false,
   credentials: true
 }));
 app.use(express.json());

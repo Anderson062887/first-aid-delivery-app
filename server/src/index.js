@@ -1,8 +1,9 @@
-import dotenv from 'dotenv';
+// Must be the first import: imports run before this file's own code, and
+// app.js reads settings (e.g. CLIENT_ORIGIN) from the environment as it loads.
+import 'dotenv/config';
 import { connectDB } from './db.js';
 import app from './app.js';
 
-dotenv.config();
 const PORT = process.env.PORT || 4000;
 
 async function main() {

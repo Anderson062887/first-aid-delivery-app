@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import Visit from '../models/Visit.js';
 import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
 import { validIdParam } from '../middleware/validateIds.js';
+import { setAuthCookie } from '../utils/authCookie.js';
 
 const r = Router();
 r.param('id', validIdParam);
@@ -125,11 +126,14 @@ r.patch('/:id', async (req, res) => {
       const passwordError = validatePassword(password);
       if (passwordError) return res.status(400).json({ error: passwordError });
       u.passwordHash = await bcrypt.hash(password, 10);
+      u.tokenVersion = (u.tokenVersion || 0) + 1; // log out every existing session
     }
 
     await u.save();
+    // An admin resetting their own password stays logged in on this device
+    if (password && String(u._id) === String(req.user._id)) setAuthCookie(res, u);
 
-    const { passwordHash: _ph, ...safe } = u.toObject();
+    const { passwordHash: _ph, tokenVersion: _tv, ...safe } = u.toObject();
     res.json(safe);
   } catch (err) {
     console.error('User update failed:', err);

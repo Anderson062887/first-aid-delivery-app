@@ -1,25 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimit.js';
 import { authRequired, requireRoles, userFromToken } from '../middleware/auth.js';
 import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
+import { setAuthCookie } from '../utils/authCookie.js';
 
 const r = Router();
-
-// helper to sign cookie
-function setAuthCookie(res, user) {
-  const payload = { _id: user._id, name: user.name, email: user.email, roles: user.roles || [] };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '7d' });
-  res.cookie('token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7d
-    path: '/',
-  });
-}
 
 // POST /api/auth/login
 r.post('/login', loginLimiter, async (req, res) => {
