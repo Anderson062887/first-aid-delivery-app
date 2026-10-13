@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, sessionEnded } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const [email, setEmail] = useState('');
@@ -28,6 +28,11 @@ export default function Login() {
   return (
     <div className="card" style={{ maxWidth:420, margin:'40px auto' }}>
       <h2 style={{ marginTop:0 }}>Sign in</h2>
+      {sessionEnded && (
+        <div style={{ background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:6, padding:'8px 12px', marginBottom:8 }}>
+          Your session has ended (it expired, or your account was disabled). Please sign in again.
+        </div>
+      )}
       {err && <div style={{ color:'red', marginBottom:8 }}>{err}</div>}
       <form onSubmit={onSubmit} style={{ display:'grid', gap:10 }}>
         <div>
