@@ -10,6 +10,8 @@ import { validIdParam } from '../middleware/validateIds.js';
 const r = Router();
 r.param('id', validIdParam);
 
+const BOX_SIZES = ['S', 'M', 'L', 'XL'];
+
 
 /** List locations */
 r.get('/', async (req, res) => {
@@ -47,26 +49,50 @@ r.get('/', async (req, res) => {
  * }
  */
 r.post('/', requireRoles('admin'), async (req, res) => {
-  const { name, address, boxCount, boxSizes, boxLabelPrefix='Box' } = req.body;
-  if(!name) return res.status(400).json({ error: 'name is required' });
+  const { name, address, boxCount, boxSizes, boxLabelPrefix='Box' } = req.body || {};
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name is required' });
 
-  const loc = await Location.create({ name, address });
-
-  // Auto-create boxes if requested
-  if (boxCount) {
-    const n = Math.max(1, Math.min(20, Number(boxCount)));
-    const sizes = Array.isArray(boxSizes) && boxSizes.length === n
+  // Check the boxes before saving anything, so a bad request never leaves a location without its boxes
+  let sizes = [];
+  if (boxCount !== undefined && boxCount !== null && boxCount !== '' && Number(boxCount) !== 0) {
+    const n = Number(boxCount);
+    if (!Number.isInteger(n) || n < 1 || n > 20) {
+      return res.status(400).json({ error: 'Number of boxes must be a whole number from 1 to 20' });
+    }
+    sizes = Array.isArray(boxSizes) && boxSizes.length === n
       ? boxSizes
       : Array.from({length:n}, ()=> 'M'); // default all 'M' if not provided
+    const bad = sizes.find(sz => !BOX_SIZES.includes(sz));
+    if (bad !== undefined) {
+      return res.status(400).json({ error: `Box size must be one of ${BOX_SIZES.join(', ')}` });
+    }
+  }
+  const prefix = String(boxLabelPrefix ?? '').trim() || 'Box';
 
+  const loc = await Location.create({
+    name: name.trim(),
+    address: address && typeof address === 'object' ? {
+      street: String(address.street || ''),
+      city: String(address.city || ''),
+      state: String(address.state || ''),
+      zip: String(address.zip || '')
+    } : undefined
+  });
+
+  if (sizes.length) {
     const payload = sizes.map((sz, idx) => ({
-      label: `${boxLabelPrefix} ${idx+1}`,
+      label: `${prefix} ${idx+1}`,
       location: loc._id,
       size: sz,
       items: []  // you can fill later or via UI
     }));
 
-    await Box.insertMany(payload);
+    try {
+      await Box.insertMany(payload);
+    } catch (e) {
+      await Location.findByIdAndDelete(loc._id); // don't leave a location without its boxes
+      throw e;
+    }
   }
 
   res.status(201).json(loc);

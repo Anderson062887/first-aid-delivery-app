@@ -453,6 +453,9 @@ r.patch('/:id', async (req, res) => {
     if (!Array.isArray(req.body?.lines)) {
       return res.status(400).json({ error: 'lines must be an array' });
     }
+    if (req.body.lines.length === 0) {
+      return res.status(400).json({ error: 'lines must have at least one item' });
+    }
 
     // Build new lines from payload, computing unitPrice from Item + packaging
     const newLines = [];

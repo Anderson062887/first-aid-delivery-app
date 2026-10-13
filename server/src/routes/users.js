@@ -3,6 +3,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Visit from '../models/Visit.js';
+import Delivery from '../models/Delivery.js';
 import { VALID_ROLES, validateRoles, validatePassword } from '../utils/users.js';
 import { validIdParam } from '../middleware/validateIds.js';
 import { setAuthCookie } from '../utils/authCookie.js';
@@ -158,11 +159,17 @@ r.delete('/:id', async (req, res) => {
       });
     }
 
-    // Visits point at their rep; deleting the user would orphan that history
-    const visitCount = await Visit.countDocuments({ rep: user._id });
-    if (visitCount > 0) {
+    // Visits and deliveries point at their rep; deleting the user would orphan that history
+    const [visitCount, deliveryCount] = await Promise.all([
+      Visit.countDocuments({ rep: user._id }),
+      Delivery.countDocuments({ rep: user._id })
+    ]);
+    if (visitCount > 0 || deliveryCount > 0) {
+      const onRecord = visitCount > 0
+        ? `${visitCount} visit(s)`
+        : `${deliveryCount} delivery(ies)`;
       return res.status(409).json({
-        error: `${user.name || 'This user'} has ${visitCount} visit(s) on record. Deactivate the user instead of deleting.`
+        error: `${user.name || 'This user'} has ${onRecord} on record. Deactivate the user instead of deleting.`
       });
     }
 
