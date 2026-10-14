@@ -19,6 +19,8 @@ export default function Boxes(){
   const [locationName, setLocationName] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  // The page opens view-only; an admin has to choose to edit, so a stray tap changes nothing
+  const [editing, setEditing] = useState(false);
 
   const load = useCallback(async (isCancelled = () => false) => {
     try{
@@ -53,13 +55,18 @@ export default function Boxes(){
     <div>
       <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
 
-      <div  style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Link className="btn" to="/locations">← Back to Locations</Link>
+        {canManage && (
+          editing
+            ? <button className="btn primary" onClick={() => setEditing(false)}>Done</button>
+            : <button className="btn" onClick={() => setEditing(true)}>Manage boxes</button>
+        )}
       </div>
 
       {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
 
-      {canManage && <AddBox locationId={locationId} onAdded={() => load()} />}
+      {editing && <AddBox locationId={locationId} onAdded={() => load()} />}
 
       {loading && <Skeleton.Table rows={4} cols={3} />}
 
@@ -75,22 +82,24 @@ export default function Boxes(){
                 <th>Label</th>
                 <th>Size</th>
                 <th>{canManage ? 'Status' : 'Location'}</th>
-                {canManage && <th></th>}
+                {editing && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {boxes.map(b => canManage
+              {boxes.map(b => editing
                 ? <BoxRow key={b._id} box={b} locationId={locationId} onChanged={() => load()} />
                 : (
-                  <tr key={b._id}>
+                  <tr key={b._id} style={b.active === false ? { opacity: 0.55 } : undefined}>
                     <td data-label="Label">{b.label}</td>
                     <td data-label="Size">{b.size}</td>
-                    <td data-label="Location">{b.location?.name || '—'}</td>
+                    {canManage
+                      ? <td data-label="Status">{b.active === false ? 'Retired' : 'Active'}</td>
+                      : <td data-label="Location">{b.location?.name || '—'}</td>}
                   </tr>
                 ))}
             </tbody>
           </table>
-          {canManage && (
+          {editing && (
             <p style={{ fontSize: 13, opacity: 0.75, marginTop: 12 }}>
               Retired boxes keep their delivery history but no longer need refilling, so they
               don't block a visit from being completed.
