@@ -64,8 +64,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'FirstAid Refill',
-        short_name: 'Refill',
+        name: 'IC Supply Delivery',
+        short_name: 'IC Supply', // home-screen label: the full name gets cut off on most phones
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',
