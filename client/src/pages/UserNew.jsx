@@ -57,8 +57,8 @@ export default function UserNew(){
         { label: 'Users', to: '/users' },
         { label: 'New User' }
       ]} />
-      <div className="card form-card" style={{ display:'grid', gap:12 }}>
-        <h2 style={{ marginTop: 0 }}>New User</h2>
+      <div className="card form-card stack">
+        <h2 className="mt0">New User</h2>
         {err && <div className="error">{err}</div>}
         <div>
           <label>Name</label>
@@ -97,10 +97,10 @@ export default function UserNew(){
 
         <h3 style={{ marginBottom: 0 }}>Roles</h3>
         <div style={{ display: 'flex', gap: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label className="inline">
             <input type="checkbox" checked={rep} onChange={e=>setRep(e.target.checked)} /> Rep
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label className="inline">
             <input type="checkbox" checked={admin} onChange={e=>setAdmin(e.target.checked)} /> Admin
           </label>
         </div>

@@ -43,6 +43,38 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .muted { color: var(--muted); }
 .error-box { color: var(--danger); background: var(--danger-bg); padding: 8px 12px; border-radius: 6px; }
 
+/* Colored notices (banners and callouts) */
+.notice { border: 1px solid; border-radius: 8px; padding: 10px 12px; }
+.card.notice { padding: var(--pad); }
+.notice.warn   { background: #fffbe6; border-color: #ffe58f; }
+.notice.danger { background: #fff1f0; border-color: #ffa39e; }
+.notice.ok     { background: #f6ffed; border-color: #b7eb8f; }
+.notice.info   { background: #e3f2fd; border-color: #b6d7f5; }
+.site-banner { margin: 12px auto; max-width: 1100px; }
+
+/* Layout helpers: use these instead of one-off inline styles */
+.stack    { display: grid; gap: 12px; }
+.stack-sm { display: grid; gap: 8px; }
+.stack-lg { display: grid; gap: 16px; }
+.actions  { display: flex; gap: 8px; flex-wrap: wrap; }
+.inline   { display: flex; gap: 8px; align-items: center; }
+.between  { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.scroll-x { overflow-x: auto; }
+.chart    { width: 100%; height: 300px; }
+.m0  { margin: 0; }
+.mt0 { margin-top: 0; }
+.mt  { margin-top: 8px; }
+.mb  { margin-bottom: 12px; }
+.my  { margin: 12px 0; }
+.strong { font-weight: 600; }
+.dim    { opacity: 0.8; }
+.hint   { font-size: 13px; opacity: 0.75; }
+
+/* "Danger Zone" box at the bottom of edit pages */
+.danger-zone { margin: 24px auto 0; border-color: var(--danger); }
+.danger-panel { margin-top: 16px; padding: 12px; background: var(--danger-bg); border-radius: 8px; }
+.danger-panel p { margin: 0 0 8px; font-size: 14px; }
+
 /* Show where the keyboard is (mouse and touch clicks don't trigger it) */
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .btn:focus-visible, .input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

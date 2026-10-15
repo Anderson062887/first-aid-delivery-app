@@ -50,8 +50,8 @@ export default function ItemNew() {
         { label: 'New Item' }
       ]} />
       <h2>New Item</h2>
-      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
-      <form className="card form-card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+      {error && <div className="error mb">{error}</div>}
+      <form className="card form-card stack" onSubmit={onSubmit}>
         <div>
           <label>Name</label>
           <input className="input" required name="name" value={form.name} onChange={update} />
@@ -82,7 +82,7 @@ export default function ItemNew() {
         </div>
 
         <div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="inline">
             <input type="checkbox" name="active" checked={form.active} onChange={update} />
             Active
           </label>

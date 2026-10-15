@@ -27,14 +27,14 @@ export default function Login() {
 
   return (
     <div className="card" style={{ maxWidth:420, margin:'40px auto' }}>
-      <h2 style={{ marginTop:0 }}>Sign in</h2>
+      <h2 className="mt0">Sign in</h2>
       {sessionEnded && (
-        <div style={{ background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:6, padding:'8px 12px', marginBottom:8 }}>
+        <div className="notice warn" style={{ marginBottom: 8 }}>
           Your session has ended (it expired, or your account was disabled). Please sign in again.
         </div>
       )}
       {err && <div className="error" style={{ marginBottom:8 }}>{err}</div>}
-      <form onSubmit={onSubmit} style={{ display:'grid', gap:10 }}>
+      <form className="stack" onSubmit={onSubmit}>
         <div>
           <label>Email</label>
           <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />

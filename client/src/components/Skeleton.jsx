@@ -32,7 +32,7 @@ export default function Skeleton({ width = '100%', height = 16, style = {} }) {
 // Card skeleton with title and content lines
 Skeleton.Card = function SkeletonCard({ lines = 3 }) {
   return (
-    <div className="card" style={{ display: 'grid', gap: 12 }}>
+    <div className="card stack">
       <Skeleton width="40%" height={20} />
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton key={i} width={i === lines - 1 ? '70%' : '100%'} height={14} />
@@ -44,7 +44,7 @@ Skeleton.Card = function SkeletonCard({ lines = 3 }) {
 // Table skeleton with header and rows
 Skeleton.Table = function SkeletonTable({ rows = 5, cols = 4 }) {
   return (
-    <div className="card" style={{ display: 'grid', gap: 8 }}>
+    <div className="card stack-sm">
       {/* Header */}
       <div style={{ display: 'flex', gap: 12, paddingBottom: 8, borderBottom: '1px solid #eee' }}>
         {Array.from({ length: cols }).map((_, i) => (
@@ -66,7 +66,7 @@ Skeleton.Table = function SkeletonTable({ rows = 5, cols = 4 }) {
 // List skeleton with items
 Skeleton.List = function SkeletonList({ items = 3 }) {
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div className="stack">
       {Array.from({ length: items }).map((_, i) => (
         <div key={i} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Skeleton width={48} height={48} style={{ borderRadius: 8, flexShrink: 0 }} />
@@ -83,10 +83,10 @@ Skeleton.List = function SkeletonList({ items = 3 }) {
 // Form skeleton
 Skeleton.Form = function SkeletonForm({ fields = 3 }) {
   return (
-    <div className="card" style={{ display: 'grid', gap: 16 }}>
+    <div className="card stack-lg">
       <Skeleton width="30%" height={24} />
       {Array.from({ length: fields }).map((_, i) => (
-        <div key={i} style={{ display: 'grid', gap: 6 }}>
+        <div className="stack-sm" key={i}>
           <Skeleton width="20%" height={12} />
           <Skeleton width="100%" height={38} style={{ borderRadius: 8 }} />
         </div>

@@ -110,12 +110,12 @@ export default function ItemPicker({ onAdd }) {
   }
 
   return (
-    <div className="card" style={{ display:'grid', gap:8 }}>
-      <div style={{ fontWeight:600 }}>Add item</div>
+    <div className="card stack-sm">
+      <div className="strong">Add item</div>
 
       {loading && <div>Loading items...</div>}
       {(!loading && items.length === 0) && (
-        <div className="card" style={{ background:'#fffbe6', borderColor:'#ffe58f' }}>
+        <div className="card notice warn">
           {isOnline()
             ? 'No items found.'
             : 'No cached items available offline. Open Items once while online to cache them.'}
@@ -206,7 +206,7 @@ export default function ItemPicker({ onAdd }) {
                     onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                   >
                     <span style={{ fontWeight: 500 }}>{item.name}</span>
-                    <span style={{ fontSize: 13, opacity: 0.7 }}>
+                    <span className="hint">
                       ${Number(item.pricePerPack || 0).toFixed(2)}/{item.packaging || 'each'}
                     </span>
                   </div>

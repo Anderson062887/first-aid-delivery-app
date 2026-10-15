@@ -132,7 +132,7 @@ export default function Deliveries() {
       <h2>{isAdmin ? 'Deliveries' : 'My Deliveries'}</h2>
 
       {/* Filters */}
-      <div className="card" style={{ display: 'grid', gap: 16 }}>
+      <div className="card stack-lg">
         <div className="row">
           <div>
             <label>Location</label>
@@ -224,7 +224,7 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {err && <div className="error" style={{ margin: '12px 0' }}>{err}</div>}
+      {err && <div className="error my">{err}</div>}
       {loading && <Skeleton.Table rows={5} cols={7} />}
 
       {!loading && grouped.length === 0 && (
@@ -232,7 +232,7 @@ export default function Deliveries() {
       )}
 
       {!loading && grouped.length > 0 && (
-        <div className="card" style={{ overflowX: 'auto' }}>
+        <div className="card scroll-x">
           <table className="table">
             <thead>
               <tr>

@@ -116,7 +116,7 @@ export default function Dashboard(){
       </div>
 
       {/* --- NEW filters card --- */}
-      <div className="card" style={{ display:'grid', gap:12 }}>
+      <div className="card stack">
         <div className="row responsive-3">
           <div>
             <label>From</label>
@@ -142,9 +142,9 @@ export default function Dashboard(){
         </div>
       </div>
 
-      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error my">{err}</div>}
       {loading && (
-        <div style={{ display: 'grid', gap: 16 }}>
+        <div className="stack-lg">
           <Skeleton.Card lines={2} />
           <Skeleton.Card lines={4} />
         </div>
@@ -154,7 +154,7 @@ export default function Dashboard(){
         <>
           <div className="card">
             <h3>{isAdmin ? 'Top Items' : 'My Top Items'}</h3>
-            <div style={{ width:'100%', height:300 }}>
+            <div className="chart">
               <ResponsiveContainer>
                 <BarChart data={itemsData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -169,7 +169,7 @@ export default function Dashboard(){
 
           <div className="card">
             <h3>{isAdmin ? 'Rep Performance' : 'My Performance'}</h3>
-            <div style={{ width:'100%', height:300 }}>
+            <div className="chart">
               <ResponsiveContainer>
                 <BarChart data={repData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -184,7 +184,7 @@ export default function Dashboard(){
 
           <div className="card">
             <h3>{isAdmin ? 'Visit Outcomes' : 'My Visit Outcomes'}</h3>
-            <div style={{ width:'100%', height:300 }}>
+            <div className="chart">
               <ResponsiveContainer>
                 <PieChart>
                   <Pie data={outcomesData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100}>

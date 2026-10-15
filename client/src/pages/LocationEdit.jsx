@@ -120,8 +120,8 @@ export default function LocationEdit() {
         { label: `Edit: ${originalName}` }
       ]} />
       <h2>Edit Location</h2>
-      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
-      <form className="card form-card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+      {error && <div className="error mb">{error}</div>}
+      <form className="card form-card stack" onSubmit={onSubmit}>
         <div>
           <label>Name</label>
           <input className="input" required name="name" value={form.name} onChange={update} />
@@ -153,11 +153,11 @@ export default function LocationEdit() {
       </form>
 
       {/* Danger Zone */}
-      <div className="card form-card" style={{ margin: '24px auto 0', border: '1px solid var(--danger)' }}>
-        <div className="danger-zone-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+      <div className="card form-card danger-zone">
+        <div className="danger-zone-header between">
           <div>
             <strong className="error">Danger Zone</strong>
-            <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.8 }}>
+            <p className="hint" style={{ margin: '4px 0 0' }}>
               Permanently delete this location and all its boxes
             </p>
           </div>
@@ -173,21 +173,20 @@ export default function LocationEdit() {
         </div>
 
         {showDelete && (
-          <div style={{ marginTop: 16, padding: 12, background: 'var(--danger-bg)', borderRadius: 8 }}>
-            <p style={{ margin: '0 0 8px', fontSize: 14 }}>
+          <div className="danger-panel">
+            <p>
               This action <strong>cannot be undone</strong>. This will permanently delete the location and all boxes associated with it.
             </p>
-            <p style={{ margin: '0 0 8px', fontSize: 14 }}>
+            <p>
               Please type <strong>{originalName}</strong> to confirm:
             </p>
             <input
-              className="input"
+              className="input mb"
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
               placeholder="Type location name to confirm"
-              style={{ marginBottom: 12 }}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="actions">
               <button
                 type="button"
                 className="btn danger solid"

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   isOnline, flushQueue, getQueue, removeFromQueue, clearQueue,
   getFailed, removeFailed, retryFailed, onSyncResult
@@ -13,7 +12,6 @@ export default function OfflineQueue() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');
   const [online, setOnline] = useState(isOnline());
-  const navigate = useNavigate();
 
   function reload() {
     setQueue(getQueue());
@@ -108,10 +106,6 @@ export default function OfflineQueue() {
 
   return (
     <div className="page">
-      <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={() => navigate(-1)}>← Back</button>
-      </div>
-
       <h2>Offline Queue</h2>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -134,7 +128,7 @@ export default function OfflineQueue() {
 
         {message && <p style={{ margin: '0 0 12px', fontWeight: 600 }}>{message}</p>}
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="actions">
           <button
             className="btn primary"
             onClick={handleSync}
@@ -152,8 +146,8 @@ export default function OfflineQueue() {
 
       {queue.length > 0 && (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Pending Items</h3>
-          <div style={{ display: 'grid', gap: 12 }}>
+          <h3 className="mt0">Pending Items</h3>
+          <div className="stack">
             {queue.map(item => (
               <div
                 key={item.id}
@@ -168,12 +162,12 @@ export default function OfflineQueue() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600 }}>{getActionLabel(item)}</div>
-                  <div style={{ fontSize: 13, opacity: 0.7 }}>
+                  <div className="strong">{getActionLabel(item)}</div>
+                  <div className="hint">
                     Queued: {formatTimestamp(item.ts)}
                   </div>
                   {item.body?.lines?.length && (
-                    <div style={{ fontSize: 13, opacity: 0.7 }}>
+                    <div className="hint">
                       {item.body.lines.length} line item{item.body.lines.length > 1 ? 's' : ''}
                     </div>
                   )}
@@ -188,13 +182,13 @@ export default function OfflineQueue() {
       )}
 
       {failed.length > 0 && (
-        <div className="card" style={{ marginTop: 16, borderColor: '#ffa39e' }}>
-          <h3 style={{ marginTop: 0 }}>Couldn't be saved</h3>
+        <div className="card notice danger" style={{ marginTop: 16 }}>
+          <h3 className="mt0">Couldn't be saved</h3>
           <p style={{ marginTop: 0, opacity: 0.8 }}>
             The server rejected these, so they won't sync on their own. Fix the cause
             (for example, ask an admin to reopen the visit), then retry, or remove them.
           </p>
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div className="stack">
             {failed.map(item => (
               <div
                 key={item.id}
@@ -210,15 +204,15 @@ export default function OfflineQueue() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600 }}>{getActionLabel(item)}</div>
-                  <div style={{ fontSize: 13, opacity: 0.7 }}>
+                  <div className="strong">{getActionLabel(item)}</div>
+                  <div className="hint">
                     Queued: {formatTimestamp(item.ts)}
                   </div>
                   <div className="error" style={{ fontSize: 13, marginTop: 4 }}>
                     {item.error || `Rejected (HTTP ${item.status})`}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="actions">
                   <button className="btn" onClick={() => handleRetry(item.id)} disabled={syncing}>
                     Retry
                   </button>

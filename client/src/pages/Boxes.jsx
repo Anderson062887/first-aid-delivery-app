@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, locationsApi } from '../api';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const SIZES = ['S', 'M', 'L', 'XL'];
 
@@ -53,10 +54,13 @@ export default function Boxes(){
 
   return (
     <div>
+      <Breadcrumbs items={[
+        { label: 'Locations', to: '/locations' },
+        { label: locationName ? `Boxes — ${locationName}` : 'Boxes' }
+      ]} />
       <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
 
       <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link className="btn" to="/locations">← Back to Locations</Link>
         {canManage && (
           editing
             ? <button className="btn primary" onClick={() => setEditing(false)}>Done</button>
@@ -64,7 +68,7 @@ export default function Boxes(){
         )}
       </div>
 
-      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error my">{err}</div>}
 
       {editing && <AddBox locationId={locationId} onAdded={() => load()} />}
 
@@ -75,7 +79,7 @@ export default function Boxes(){
       )}
 
       {!loading && boxes.length > 0 && (
-        <div className="card" style={{ overflowX:'auto' }}>
+        <div className="card scroll-x">
           <table className="table items-table">
             <thead>
               <tr>
@@ -132,7 +136,7 @@ function AddBox({ locationId, onAdded }){
   }
 
   return (
-    <form className="card" onSubmit={add} style={{ marginBottom: 12 }}>
+    <form className="card mb" onSubmit={add}>
       <div className="row" style={{ alignItems: 'flex-end' }}>
         <div>
           <label>New box label</label>
@@ -148,7 +152,7 @@ function AddBox({ locationId, onAdded }){
           <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add box'}</button>
         </div>
       </div>
-      {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
+      {err && <div className="error mt">{err}</div>}
     </form>
   );
 }

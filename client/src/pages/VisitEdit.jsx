@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import { visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
 
@@ -39,12 +40,14 @@ export default function VisitEdit(){
 
   return (
     <div>
-      <div className="row" style={{ marginBottom:12 }}>
-        <button className="btn" onClick={()=>nav(-1)}>← Back</button>
-      </div>
+      <Breadcrumbs items={[
+        { label: 'Deliveries', to: '/deliveries' },
+        { label: 'Visit Details', to: `/deliveries/visit/${id}` },
+        { label: 'Edit Visit' }
+      ]} />
 
-      <div className="card" style={{ display:'grid', gap:8 }}>
-        <h2 style={{ margin:0 }}>Edit Visit</h2>
+      <div className="card stack-sm">
+        <h2 className="m0">Edit Visit</h2>
         <div><strong>Location:</strong> {visit.location?.name || '—'}</div>
         <div><strong>Rep:</strong> {visit.rep?.name || visit.repName || '—'}</div>
 
@@ -54,14 +57,14 @@ export default function VisitEdit(){
         <label>Outcome</label>
         <div className="row" style={{ gap:12, flexWrap:'wrap' }}>
           {kinds.map(k => (
-            <label key={k} style={{ display:'flex', gap:6, alignItems:'center' }}>
+            <label className="inline" key={k}>
               <input type="radio" name="outcome" checked={outcome===k} onChange={()=>setOutcome(k)} />
               <Badge kind={k}>{k.replace('_',' ')}</Badge>
             </label>
           ))}
         </div>
 
-        <label style={{ marginTop:8 }}>Note</label>
+        <label className="mt">Note</label>
         <textarea className="input" rows={4} value={note} onChange={e=>setNote(e.target.value)} />
 
         <div className="row" style={{ gap:8 }}>

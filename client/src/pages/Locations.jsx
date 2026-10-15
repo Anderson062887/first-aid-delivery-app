@@ -75,7 +75,7 @@ export default function Locations(){
 
       {/* <RepBar onChange={setRepId} /> */}
 
-      <div className="card" style={{ display:'grid', gap:12 }}>
+      <div className="card stack">
         <label>Search by name or address</label>
         <input
           className="input"
@@ -83,24 +83,24 @@ export default function Locations(){
           value={input}
           onChange={e=>setInput(e.target.value)}
         />
-        <small style={{opacity:.7}}>Searching for: <code>{search || '— (all)'}</code></small>
+        <small className="dim">Searching for: <code>{search || '— (all)'}</code></small>
       </div>
 
-      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error my">{err}</div>}
       {loading && <Skeleton.List items={4} />}
 
       {!loading && locations.length === 0 && (
         <div className="card">No locations found.</div>
       )}
 
-      <div style={{ display:'grid', gap:12 }}>
+      <div className="stack">
         {locations.map(loc => {
           const visits = visitsByLoc[loc._id] || [];
           return (
-            <div className="card" key={loc._id} style={{ display:'grid', gap:10 }}>
-              <div style={{ fontWeight:600 }}>{loc.name}</div>
+            <div className="card stack" key={loc._id}>
+              <div className="strong">{loc.name}</div>
               {loc.address && (
-                <div style={{ opacity:.8 }}>
+                <div className="dim">
                   {loc.address.street || ''}{loc.address.city ? `, ${loc.address.city}` : ''}
                   {loc.address.state ? `, ${loc.address.state}` : ''} {loc.address.zip || ''}
                 </div>
@@ -118,9 +118,9 @@ export default function Locations(){
                 </Link>
               </div>
 
-              <div style={{ marginTop:8 }}>
+              <div className="mt">
                 <div style={{ fontWeight:600, marginBottom:4 }}>{isAdmin ? 'Recent visits' : 'Your recent visits'}</div>
-                {visits.length === 0 && <div style={{ opacity:.8 }}>{isAdmin ? 'No visits yet.' : "You haven't visited yet."}</div>}
+                {visits.length === 0 && <div className="dim">{isAdmin ? 'No visits yet.' : "You haven't visited yet."}</div>}
                 {visits.length > 0 && (
                   <ul style={{ margin:0, paddingLeft:18, display:'grid', gap:6 }}>
                     {visits.map(v => (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const money = (n) => Number(n || 0).toFixed(2);
 
@@ -158,7 +159,7 @@ export default function DeliveryEdit() {
       const updated = await r.json();
       setMsg('Delivery updated.');
       // Go back to single delivery detail
-      navigate(`/deliveries/${updated._id}?from=edit`);
+      navigate(`/deliveries/${updated._id}`, { replace: true });
     } catch (e) {
       setErr(String(e?.message || e));
     } finally {
@@ -170,12 +171,17 @@ export default function DeliveryEdit() {
 
   return (
     <div>
-      <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={() => navigate(-1)}>← Back</button>
-      </div>
+      <Breadcrumbs items={[
+        { label: 'Deliveries', to: '/deliveries' },
+        ...(delivery?.visit?._id || typeof delivery?.visit === 'string'
+          ? [{ label: 'Visit Details', to: `/deliveries/visit/${delivery.visit._id || delivery.visit}` }]
+          : []),
+        { label: 'Delivery', to: `/deliveries/${id}` },
+        { label: 'Edit' }
+      ]} />
 
-      <div className="card" style={{ display: 'grid', gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Edit Delivery</h2>
+      <div className="card stack-sm">
+        <h2 className="m0">Edit Delivery</h2>
         {delivery && (
           <>
             <div><strong>Location:</strong> {delivery.location?.name || '—'}</div>
@@ -189,9 +195,9 @@ export default function DeliveryEdit() {
         {msg && <div className="success">{msg}</div>}
       </div>
 
-      <div className="card" style={{ display: 'grid', gap: 12 }}>
+      <div className="card stack">
         <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>Lines</h3>
+          <h3 className="m0">Lines</h3>
           <button className="btn" onClick={addLine}>+ Add line</button>
         </div>
 

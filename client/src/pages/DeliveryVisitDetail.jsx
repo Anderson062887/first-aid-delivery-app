@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import Badge from '../components/Badge.jsx';
 import { cacheBoxes, cacheVisit, cacheItems } from '../cache.js'
 
@@ -118,7 +119,6 @@ function buildVisitLinesCsv(visitDoc, deliveries) {
 
 export default function DeliveryVisitDetail() {
   const { visitId } = useParams();
-  const navigate = useNavigate();
   const [visitDoc, setVisitDoc] = useState(null);
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
@@ -231,27 +231,15 @@ export default function DeliveryVisitDetail() {
 
   return (
     <div>
-      {/* <div className="row" style={{ marginBottom: 12 }}>
-        <div> <button className="btn" onClick={() => navigate(-1)}>← Back</button></div>
-       
-        <div style={{ marginLeft: 'auto', display:'flex', gap:8 }}>
-          <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
-        </div>
+      <Breadcrumbs items={[{ label: 'Deliveries', to: '/deliveries' }, { label: 'Visit Details' }]} />
+      <div className="actions mb">
+        <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
+        <Link className="btn" to={`/visits/${visitId}/print`}>Print Summary</Link>
+      </div>
+       {exportErr && <div className="error-box mb">{exportErr}</div>}
 
-      </div> */}
-       <div  style={{ marginBottom: 12, display:"flex" }}>
-          <button className="btn" onClick={()=>navigate(-1)}>← Back</button>
-          <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
-            <button className="btn" onClick={exportVisitCsv}>Export Lines (CSV)</button>
-            <Link className="btn" to={`/visits/${visitId}/print`}>Print Summary</Link>
-            {/* <Link className="btn" to={`/visits/${visitId}/edit`}>Edit visit</Link> */}
-
-          </div>
-       </div>
-       {exportErr && <div className="error-box" style={{ marginBottom: 12 }}>{exportErr}</div>}
-
-      <div className="card" style={{ display:'grid', gap:6 }}>
-        <h2 style={{ margin:0 }}>Visit Details</h2>
+      <div className="card stack-sm">
+        <h2 className="m0">Visit Details</h2>
         <div><strong>Location:</strong> {locName}{locAddr ? ` — ${locAddr}` : ''}</div>
         <div><strong>Rep:</strong> {repName}</div>
         <div><strong>Started:</strong> {started}</div>
@@ -268,7 +256,7 @@ export default function DeliveryVisitDetail() {
       </div>
 
       <div className="card" style={{ overflowX:'auto', marginTop:12 }}>
-        <h3 style={{ marginTop:0 }}>Deliveries for this visit</h3>
+        <h3 className="mt0">Deliveries for this visit</h3>
         {rows.length === 0 && <div>No deliveries yet for this visit.</div>}
         {rows.length > 0 && (
           <table className="table">

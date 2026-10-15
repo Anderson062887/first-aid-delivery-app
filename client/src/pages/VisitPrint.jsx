@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const money = (n) => Number(n || 0).toFixed(2);
 const fmt = (d) => (d ? new Date(d).toLocaleString() : '—');
@@ -20,7 +21,6 @@ const COMPANY = {
 
 export default function VisitPrint() {
   const { visitId } = useParams();
-  const nav = useNavigate();
   const [visit, setVisit] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [err, setErr] = useState('');
@@ -81,13 +81,17 @@ export default function VisitPrint() {
   return (
     <div className="print-page">
       {/* Actions (hidden on print) */}
+      <Breadcrumbs items={[
+        { label: 'Deliveries', to: '/deliveries' },
+        { label: 'Visit Details', to: `/deliveries/visit/${visitId}` },
+        { label: 'Print' }
+      ]} />
       <div className="print-actions no-print" style={{ margin: '8px 0' }}>
-        <button className="btn" onClick={() => nav(-1)}>← Back</button>
         <button className="btn primary" onClick={doPrint}>Print / Save PDF</button>
       </div>
 
       {/* Brand / company header */}
-      <div className="card" style={{ display:'grid', gap:10 }}>
+      <div className="card stack">
         <div className="print-header">
           <div className="print-brand">
             <div className="print-logo">
@@ -113,14 +117,14 @@ export default function VisitPrint() {
         <div><strong>Outcome:</strong> {visit.outcome ? visit.outcome.replace('_',' ') : '—'}</div>
         {visit.note && <div><strong>Note:</strong> {visit.note}</div>}
 
-        <div style={{ marginTop:8 }}>
+        <div className="mt">
           <strong># Boxes:</strong> {totals.boxes} &nbsp; | &nbsp; <strong>Total:</strong> ${money(totals.total)}
         </div>
       </div>
 
       {/* Deliveries table */}
       <div className="card" style={{ marginTop:12 }}>
-        <h3 style={{ marginTop:0 }}>Deliveries & Line Items</h3>
+        <h3 className="mt0">Deliveries & Line Items</h3>
         {deliveries.length === 0 && <div>No deliveries yet.</div>}
         {deliveries.length > 0 && (
           <table className="print-table">

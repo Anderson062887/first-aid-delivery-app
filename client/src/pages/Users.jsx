@@ -73,7 +73,7 @@ async function toggleRole(u, role){
         <Link to="/users/new" className='btn'>+ New User</Link>
       </div>
 
-      <div className="card" style={{ overflowX:'auto' }}>
+      <div className="card scroll-x">
         <table className="table">
           <thead>
             <tr>

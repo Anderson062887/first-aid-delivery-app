@@ -83,7 +83,7 @@ export default function LocationNew(){
         { label: 'New Location' }
       ]} />
       <h2>New Location</h2>
-      {err && <div className="error" style={{ marginBottom:12 }}>{err}</div>}
+      {err && <div className="error mb">{err}</div>}
       <form className='card' onSubmit={submit} style={{display:'grid', gap:12, maxWidth:600, width:'100%', margin:"0 auto", boxSizing:'border-box'}}>
         <label>Name<input className="input" name="name" required value={form.name} onChange={updateField}/></label>
         <div className="row">

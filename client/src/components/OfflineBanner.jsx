@@ -29,14 +29,14 @@ export default function OfflineBanner(){
   if (online) {
     if (!lastSync) return null;
     return (
-      <div className="card" style={{ background:'#f6ffed', borderColor:'#b7eb8f' }}>
+      <div className="card notice ok">
         <strong>Synced.</strong> Pushed {lastSync.pushed} queued change(s). {lastSync.left>0 ? `Remaining: ${lastSync.left}` : ''}
       </div>
     );
   }
 
   return (
-    <div className="card" style={{ background:'#fffbe6', borderColor:'#ffe58f' }}>
+    <div className="card notice warn">
       <strong>Offline.</strong> Changes will be saved locally and synced when you reconnect.
     </div>
   );

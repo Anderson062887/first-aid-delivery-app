@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom';
 import { startOfflineSyncLoop, flushQueue, isOnline, getQueueCount, getFailedCount } from '../offline';
 import { useAuth } from '../auth/AuthContext.jsx';
 
-const banner = (bg, border) => ({ background: bg, borderColor: border, margin: '12px auto', maxWidth: 1100 });
-
 export default function OnlineSyncGate(){
   const { user, refresh } = useAuth();
   const [last, setLast] = useState(null);
@@ -36,7 +34,7 @@ export default function OnlineSyncGate(){
 
   if (sessionExpired && waiting > 0) {
     return (
-      <div className="card no-print" style={banner('#fff1f0', '#ffa39e')}>
+      <div className="card notice danger site-banner no-print">
         <strong>Your session has expired.</strong> {waiting} change{waiting === 1 ? ' is' : 's are'} waiting
         on this device. Log in again to sync {waiting === 1 ? 'it' : 'them'}.
       </div>
@@ -45,7 +43,7 @@ export default function OnlineSyncGate(){
 
   if (failed > 0 && user) {
     return (
-      <div className="card no-print" style={banner('#fff1f0', '#ffa39e')}>
+      <div className="card notice danger site-banner no-print">
         <strong>{failed} change{failed === 1 ? '' : 's'} couldn't be saved.</strong> The server rejected
         {failed === 1 ? ' it' : ' them'}. <Link to="/offline-queue">Review and retry</Link>
       </div>
@@ -57,7 +55,7 @@ export default function OnlineSyncGate(){
   // Show “queued” message while offline with pending jobs
   if (!isOnline() && last.left > 0) {
     return (
-      <div className="card no-print" style={banner('#fffbe6', '#ffe58f')}>
+      <div className="card notice warn site-banner no-print">
         Offline: {last.left} change(s) queued. They’ll sync when you’re back online.
       </div>
     );
@@ -66,7 +64,7 @@ export default function OnlineSyncGate(){
   // Briefly show a “synced” message after coming online
   if (isOnline() && last.done > 0) {
     return (
-      <div className="card no-print" style={banner('#f6ffed', '#b7eb8f')}>
+      <div className="card notice ok site-banner no-print">
         Synced {last.done} queued change(s).
       </div>
     );

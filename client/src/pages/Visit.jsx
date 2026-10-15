@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import { cacheVisit, cacheBoxes, cacheItems, getBoxes } from '../cache.js';
 import { queuedBoxIdsForVisit, onSyncResult } from '../offline';
 
@@ -167,12 +168,13 @@ export default function Visit(){
 
   return (
     <div>
-      <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={()=>navigate(-1)}>← Back</button>
-      </div>
+      <Breadcrumbs items={[
+        { label: 'Locations', to: '/locations' },
+        { label: `Visit — ${locName}` }
+      ]} />
 
-      <div className="card" style={{ display:'grid', gap:6 }}>
-        <h2 style={{ margin:0 }}>Visit</h2>
+      <div className="card stack-sm">
+        <h2 className="m0">Visit</h2>
         <div><strong>Location:</strong> {locName}</div>
         <div><strong>Rep:</strong> {repName}</div>
         <div><strong>Started:</strong> {started}</div>
@@ -186,15 +188,15 @@ export default function Visit(){
         {visit.note && <div><strong>Note:</strong> {visit.note}</div>}
       </div>
 
-      <div className="card" style={{ display:'grid', gap:10 }}>
-        <h3 style={{ margin:0 }}>Boxes at this location</h3>
+      <div className="card stack">
+        <h3 className="m0">Boxes at this location</h3>
 
         {boxes.length === 0 && (
-          <div style={{ opacity:.8 }}>No boxes found for this location.</div>
+          <div className="dim">No boxes found for this location.</div>
         )}
 
         {boxes.length > 0 && (
-          <div style={{ display:'grid', gap:8 }}>
+          <div className="stack-sm">
             {boxes.map(b => {
               const bid = String(getBoxId(b));
               const covered = isCovered(bid);
@@ -214,8 +216,8 @@ export default function Visit(){
                   }}
                 >
                   <div style={{ flex:'1 1 180px', minWidth:0 }}>
-                    <div style={{ fontWeight:600 }}>{b.label}</div>
-                    {b.size && <div style={{ opacity:.8 }}>Size: {b.size}</div>}
+                    <div className="strong">{b.label}</div>
+                    {b.size && <div className="dim">Size: {b.size}</div>}
                     <div style={{ marginTop:4 }}>
                       {waiting ? '⏳ Refilled (waiting to sync)' : covered ? '✅ Refilled' : '❌ Not filled'}
                     </div>
@@ -243,8 +245,8 @@ export default function Visit(){
         </div>
       )}
 
-      <div className="card" style={{ display:'grid', gap:10 }}>
-        <h3 style={{ margin:0 }}>Submit Visit</h3>
+      <div className="card stack">
+        <h3 className="m0">Submit Visit</h3>
 
         <label>Outcome</label>
         <div className="row" style={{ gap:12, flexWrap:'wrap' }}>
@@ -270,7 +272,7 @@ export default function Visit(){
           </div>
         )}
 
-        <label style={{ marginTop:8 }}>Note</label>
+        <label className="mt">Note</label>
         <textarea
           className="input"
           rows={4}

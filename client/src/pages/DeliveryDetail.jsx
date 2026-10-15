@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useNavigate,useLocation } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const money = (n) => Number(n || 0).toFixed(2);
 const fmtAddress = (addr) => {
@@ -13,10 +13,6 @@ export default function DeliveryDetail(){
   const { id} = useParams();
   const [delivery, setDelivery] = useState(null);
   const [err, setErr] = useState('');
-  const navigate = useNavigate();
-   const location = useLocation();
-  const params = new URLSearchParams(location.search);
-    const from = params.get('from'); 
     
 
   useEffect(() => {
@@ -36,18 +32,6 @@ export default function DeliveryDetail(){
   }, [id]);
 
 
-   function handleBack() {
-  if (from === 'edit') {
-      // Came from the edit screen — avoid the back loop
-      navigate('/deliveries');
-    } else if (window.history.length > 1) {
-      // Normal case: go back one step
-      navigate(-1);
-    } else {
-      // Fallback if no history (e.g., page was opened directly)
-      navigate('/deliveries');
-    }
-  }
 
   if (err) return <div className="card error">{err}</div>;
   if (!delivery) return <div className="card">Loading…</div>;
@@ -62,13 +46,15 @@ export default function DeliveryDetail(){
 
   return (
     <div>
-      <div  style={{ marginBottom: 12, border:"none" }}>
-        <Link className="btn" to="/deliveries">← Back to Deliveries</Link>
-      </div>
+      <Breadcrumbs items={[
+        { label: 'Deliveries', to: '/deliveries' },
+        ...(delivery.visit?._id ? [{ label: 'Visit Details', to: `/deliveries/visit/${delivery.visit._id}` }] : []),
+        { label: 'Delivery' }
+      ]} />
   
 
-      <div className="card" style={{ display:'grid', gap:6 }}>
-        <h2 style={{ margin: 0 }}>Delivery Detail</h2>
+      <div className="card stack-sm">
+        <h2 className="m0">Delivery Detail</h2>
         <div><strong>Date:</strong> {when ? new Date(when).toLocaleString() : '—'}</div>
         <div><strong>Location:</strong> {locationName}{locationAddress ? ` — ${locationAddress}` : ''}</div>
         <div><strong>Box:</strong> {boxLabel}{boxSize}</div>
@@ -108,18 +94,6 @@ export default function DeliveryDetail(){
         </table>
       </div>
 
-      {delivery.visit?._id && (
-        from !== "edit" && (
-        <div className="card">
-          
-         <button
-            className="btn"
-            onClick={handleBack} // Go back to previous page
-          >
-            Back
-            </button>
-        </div>)
-      )}
     </div>
   );
 }

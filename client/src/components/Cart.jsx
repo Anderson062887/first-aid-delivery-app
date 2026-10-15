@@ -53,11 +53,11 @@ export default function Cart({ lines = [], items = [], onRemove }) {
   const subtotal = rows.reduce((acc, r) => acc + r.lineTotal, 0);
 
   return (
-    <div className="card" style={{ display:'grid', gap:8 }}>
-      <div style={{ fontWeight:600 }}>Lines</div>
+    <div className="card stack-sm">
+      <div className="strong">Lines</div>
 
       {rows.length === 0 ? (
-        <div style={{ opacity:.7 }}>No items added yet.</div>
+        <div className="dim">No items added yet.</div>
       ) : (
         <table className="table items-table">
           <thead>

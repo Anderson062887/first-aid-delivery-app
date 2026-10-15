@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, visitApi } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 export default function VisitStart(){
   const nav = useNavigate();
@@ -37,6 +38,7 @@ export default function VisitStart(){
 
   return (
     <div>
+      <Breadcrumbs items={[{ label: 'Locations', to: '/locations' }, { label: 'Start Visit' }]} />
       <h2>Start Visit</h2>
       <div className="card">
         <label>Rep</label>
@@ -56,7 +58,7 @@ export default function VisitStart(){
           {locations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
         </select>
 
-        {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
+        {err && <div className="error mt">{err}</div>}
 
         <button className="btn primary" onClick={start} disabled={loading} style={{ marginTop: 12 }}>
           {loading ? 'Starting…' : 'Start Visit'}

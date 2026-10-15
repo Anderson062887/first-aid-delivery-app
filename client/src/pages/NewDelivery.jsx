@@ -251,16 +251,20 @@ export default function NewDelivery(){
 
   return (
     <div>
-      <Breadcrumbs items={[
+      <Breadcrumbs items={visitId ? [
+        { label: 'Locations', to: '/locations' },
+        { label: 'Visit', to: `/visits/${visitId}` },
+        { label: 'New Delivery' }
+      ] : [
         { label: 'Deliveries', to: '/deliveries' },
         { label: 'New Delivery' }
       ]} />
       <h2>New Delivery {visitId && <small>(Visit)</small>}</h2>
 
       {showDraftBanner && (
-        <div className="card" style={{ background: '#e3f2fd', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card notice info mb between">
           <span>Restored previous draft ({lines.length} items)</span>
-          <button className="btn danger" onClick={discardDraft} style={{ marginLeft: 8 }}>Discard</button>
+          <button className="btn danger" onClick={discardDraft}>Discard</button>
         </div>
       )}
 
@@ -290,7 +294,7 @@ export default function NewDelivery(){
           </select>
         </div>
         <div>
-          <label htmlFor="box-select">Box {loadingBoxes && <span style={{ opacity: 0.7 }}>(Loading…)</span>}</label>
+          <label htmlFor="box-select">Box {loadingBoxes && <span className="dim">(Loading…)</span>}</label>
           <select
             id="box-select"
             className="input"
@@ -309,7 +313,7 @@ export default function NewDelivery(){
       <ItemPicker onAdd={(l) => { addLine(l); setErr(''); }} />
       <Cart lines={lines} items={items} onRemove={removeLine} />
 
-      {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
+      {err && <div className="error mb">{err}</div>}
 
       <button className="btn primary" onClick={submit} disabled={submitting}>
         {submitting ? 'Submitting…' : 'Submit box'}
