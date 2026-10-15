@@ -202,30 +202,22 @@ export default function Visit(){
               const covered = isCovered(bid);
               const waiting = !deliveredIds.has(bid) && queuedIds.has(bid);
               return (
-                <div
-                  key={bid}
-                  style={{
-                    display:'flex',
-                    alignItems:'center',
-                    gap:10,
-                    justifyContent:'space-between',
-                    flexWrap:'wrap',
-                    border:'1px solid #eee',
-                    borderRadius:8,
-                    padding:10
-                  }}
-                >
+                <div key={bid} className="list-row">
                   <div style={{ flex:'1 1 180px', minWidth:0 }}>
                     <div className="strong">{b.label}</div>
                     {b.size && <div className="dim">Size: {b.size}</div>}
-                    <div style={{ marginTop:4 }}>
-                      {waiting ? '⏳ Refilled (waiting to sync)' : covered ? '✅ Refilled' : '❌ Not filled'}
+                    <div style={{ marginTop: 6 }}>
+                      {waiting
+                        ? <span className="chip waiting">Refilled (waiting to sync)</span>
+                        : covered
+                          ? <span className="chip ok">Refilled</span>
+                          : <span className="chip todo">Not filled</span>}
                     </div>
                   </div>
 
                   {!covered && !readonly && (
                     <Link
-                      className="btn"
+                      className="btn primary"
                       to={`/deliveries/new?visit=${encodeURIComponent(visit._id)}&box=${encodeURIComponent(bid)}`}
                       state={{ visit, box: b }}
                     >

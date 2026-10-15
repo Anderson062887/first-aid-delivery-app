@@ -26,7 +26,7 @@ export default function Login() {
   }
 
   return (
-    <div className="card" style={{ maxWidth:420, margin:'40px auto' }}>
+    <div className="card" style={{ maxWidth: 400, margin: '48px auto', padding: 24 }}>
       <h2 className="mt0">Sign in</h2>
       {sessionEnded && (
         <div className="notice warn" style={{ marginBottom: 8 }}>
@@ -37,11 +37,11 @@ export default function Login() {
       <form className="stack" onSubmit={onSubmit}>
         <div>
           <label>Email</label>
-          <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />
+          <input className="input" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} />
         </div>
         <div>
           <label>Password</label>
-          <input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+          <input className="input" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} />
         </div>
         <button className="btn primary" type="submit">Sign in</button>
       </form>

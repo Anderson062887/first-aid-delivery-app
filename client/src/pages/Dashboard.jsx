@@ -31,7 +31,7 @@ export default function Dashboard(){
   const { user } = useAuth();
   // Reports only include the signed-in rep's own work unless they are an admin
   const isAdmin = !!user?.roles?.includes('admin');
-  const [ok, setOk] = useState(false);
+  const [ok, setOk] = useState(null); // null until the health check answers
   const q = useQuery();
   const done = q.get('done'); // 'delivery' | 'visit'
 
@@ -110,10 +110,9 @@ export default function Dashboard(){
       {done === 'delivery' && <Flash>Delivery recorded ✅</Flash>}
       {done === 'visit' && <Flash>Visit submitted ✅</Flash>}
 
-      <div className="card">
-        <p>API status: {ok ? '✅ Connected' : '❌ Offline'}</p>
-        <p>Use the navigation to manage items, locations, boxes, visits, and deliveries.</p>
-      </div>
+      {ok === false && (
+        <div className="card notice warn">Can't reach the server right now. Showing what's saved on this device.</div>
+      )}
 
       {/* --- NEW filters card --- */}
       <div className="card stack">
@@ -161,7 +160,7 @@ export default function Dashboard(){
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="quantity" fill="#2196f3" />
+                  <Bar dataKey="quantity" fill="#165ca8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -176,7 +175,7 @@ export default function Dashboard(){
                   <XAxis dataKey="rep" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="total" fill="#4caf50" />
+                  <Bar dataKey="total" fill="#2e7d32" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

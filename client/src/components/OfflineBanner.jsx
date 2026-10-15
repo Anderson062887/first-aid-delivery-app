@@ -27,7 +27,7 @@ export default function OfflineBanner(){
   }, []);
 
   if (online) {
-    if (!lastSync) return null;
+    if (!lastSync || !lastSync.pushed) return null; // nothing was sent: nothing to report
     return (
       <div className="card notice ok">
         <strong>Synced.</strong> Pushed {lastSync.pushed} queued change(s). {lastSync.left>0 ? `Remaining: ${lastSync.left}` : ''}

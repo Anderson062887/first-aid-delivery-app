@@ -107,15 +107,18 @@ export default function Locations(){
               )}
 
               <div className="action-row" style={{ marginTop: 6 }}>
-                <button className="btn" onClick={() => startVisit(loc._id)}>
+                <button className="btn primary" onClick={() => startVisit(loc._id)}>
                   Start / Continue Visit
                 </button>
                 <Link className="btn" to={`/boxes?location=${loc._id}`}>
                   View Boxes
                 </Link>
-                <Link className="btn" to={`/locations/${loc._id}/edit`}>
-                  Edit
-                </Link>
+                {/* Editing a location is admin-only (the page itself is) */}
+                {isAdmin && (
+                  <Link className="btn" to={`/locations/${loc._id}/edit`}>
+                    Edit
+                  </Link>
+                )}
               </div>
 
               <div className="mt">

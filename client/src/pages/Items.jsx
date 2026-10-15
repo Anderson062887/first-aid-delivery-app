@@ -29,7 +29,7 @@ export default function Items() {
     <div className="page items-page">
       <h2>Items</h2>
       <div style={{ marginBottom: 12, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Link className="btn" to="/items/new">+ New Item</Link>
+        <Link className="btn primary" to="/items/new">+ New Item</Link>
         <input
           type="search"
           className="input"

@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-78ad2f9a'], (function (workbox) { 'use strict';
+define(['./workbox-e7681877'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -79,21 +79,25 @@ define(['./workbox-78ad2f9a'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.khuc3fj9jb"
+    "revision": "0.b9bit4d4mpg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/\/api\/items(\?|$)/, new workbox.StaleWhileRevalidate({
+  workbox.registerRoute(/\/api\/items(\?|$)/, new workbox.NetworkFirst({
     "cacheName": "api-items",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 1,
       maxAgeSeconds: 86400
     })]
   }), 'GET');
-  workbox.registerRoute(/\/api\/locations(\?|$)/, new workbox.StaleWhileRevalidate({
+  workbox.registerRoute(({
+    url
+  }) => url.pathname === "/api/locations" && !url.searchParams.get("q"), new workbox.NetworkFirst({
     "cacheName": "api-locations",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 1,
       maxAgeSeconds: 86400
@@ -115,40 +119,5 @@ define(['./workbox-78ad2f9a'], (function (workbox) { 'use strict';
       maxAgeSeconds: 86400
     })]
   }), 'GET');
-  workbox.registerRoute(({
-    url
-  }) => url.pathname === "/api/visits", new workbox.NetworkOnly({
-    plugins: [new workbox.BackgroundSyncPlugin("queue-visits", {
-      maxRetentionTime: 1440
-    })]
-  }), 'POST');
-  workbox.registerRoute(({
-    url
-  }) => url.pathname === "/api/deliveries", new workbox.NetworkOnly({
-    plugins: [new workbox.BackgroundSyncPlugin("queue-deliveries", {
-      maxRetentionTime: 1440
-    })]
-  }), 'POST');
-  workbox.registerRoute(({
-    url
-  }) => /^\/api\/visits\/[^/]+\/submit$/.test(url.pathname), new workbox.NetworkOnly({
-    plugins: [new workbox.BackgroundSyncPlugin("queue-visit-submit", {
-      maxRetentionTime: 1440
-    })]
-  }), 'POST');
-  workbox.registerRoute(({
-    url
-  }) => /^\/api\/visits\/[^/]+(?:\/note)?$/.test(url.pathname), new workbox.NetworkOnly({
-    plugins: [new workbox.BackgroundSyncPlugin("queue-visit-patch", {
-      maxRetentionTime: 1440
-    })]
-  }), 'PATCH');
-  workbox.registerRoute(({
-    url
-  }) => /^\/api\/deliveries\/[^/]+$/.test(url.pathname), new workbox.NetworkOnly({
-    plugins: [new workbox.BackgroundSyncPlugin("queue-delivery-patch", {
-      maxRetentionTime: 1440
-    })]
-  }), 'PATCH');
 
 }));

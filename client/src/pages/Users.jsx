@@ -70,7 +70,7 @@ async function toggleRole(u, role){
       {msg && <Flash>{msg}</Flash>}
       {err && <div className="error">{err}</div>}
       <div style={{margin:"20px 0"}}>
-        <Link to="/users/new" className='btn'>+ New User</Link>
+        <Link to="/users/new" className='btn primary'>+ New User</Link>
       </div>
 
       <div className="card scroll-x">
