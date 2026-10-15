@@ -48,8 +48,8 @@ export default function VisitEdit(){
         <div><strong>Location:</strong> {visit.location?.name || '—'}</div>
         <div><strong>Rep:</strong> {visit.rep?.name || visit.repName || '—'}</div>
 
-        {err && <div style={{ color:'red' }}>{err}</div>}
-        {msg && <div style={{ color:'green' }}>{msg}</div>}
+        {err && <div className="error">{err}</div>}
+        {msg && <div className="success">{msg}</div>}
 
         <label>Outcome</label>
         <div className="row" style={{ gap:12, flexWrap:'wrap' }}>

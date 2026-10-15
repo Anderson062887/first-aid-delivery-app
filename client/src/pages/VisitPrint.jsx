@@ -71,7 +71,7 @@ export default function VisitPrint() {
     window.print();
   }
 
-  if (err) return <div className="card" style={{ color:'red' }}>{err}</div>;
+  if (err) return <div className="card error">{err}</div>;
   if (!visit) return <div className="card">Loading…</div>;
 
   const locName = visit.location?.name || '—';

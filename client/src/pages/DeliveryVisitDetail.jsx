@@ -220,7 +220,7 @@ export default function DeliveryVisitDetail() {
     downloadTextFile(filename, csv);
   }
 
-  if (err) return <div className="card" style={{ color:'red' }}>{err}</div>;
+  if (err) return <div className="card error">{err}</div>;
   if (!visitDoc) return <div className="card">Loading…</div>;
 
   const locName = visitDoc.location?.name || '—';
@@ -248,7 +248,7 @@ export default function DeliveryVisitDetail() {
 
           </div>
        </div>
-       {exportErr && <div style={{ color: 'red', marginBottom: 12, padding: '8px 12px', background: '#fee', borderRadius: 6 }}>{exportErr}</div>}
+       {exportErr && <div className="error-box" style={{ marginBottom: 12 }}>{exportErr}</div>}
 
       <div className="card" style={{ display:'grid', gap:6 }}>
         <h2 style={{ margin:0 }}>Visit Details</h2>

@@ -12,7 +12,7 @@ export default function ProtectedRoute({ roles }) {
 
   if (roles && roles.length) {
     const ok = (user.roles || []).some(r => roles.includes(r));
-    if (!ok) return <div className="card" style={{ color:'red' }}>Forbidden</div>;
+    if (!ok) return <div className="card error">Forbidden</div>;
   }
   return <Outlet />;
 }

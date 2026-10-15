@@ -157,7 +157,7 @@ export default function Visit(){
     }
   }
 
-  if (loadErr) return <div className="card" style={{ color:'red' }}>{loadErr}</div>;
+  if (loadErr) return <div className="card error">{loadErr}</div>;
   if (loading || !visit) return <div className="card">Loading…</div>;
 
   const repName   = visit.rep?.name || visit.repName || '—';
@@ -238,13 +238,7 @@ export default function Visit(){
       </div>
 
       {err && (
-        <div style={{
-          background: 'tomato',
-          color: '#fff',
-          padding: '8px 12px',
-          borderRadius: 4,
-          marginBottom: 10
-        }}>
+        <div className="error-box" style={{ marginBottom: 10 }}>
           {err}
         </div>
       )}
@@ -271,7 +265,7 @@ export default function Visit(){
           })}
         </div>
         {!readonly && outcome === 'completed' && !allCovered && (
-          <div style={{ color:'#a00' }}>
+          <div className="error">
             You must refill all boxes before submitting as <strong>completed</strong>.
           </div>
         )}

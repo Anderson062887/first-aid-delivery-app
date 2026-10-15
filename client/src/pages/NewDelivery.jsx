@@ -8,6 +8,7 @@ import { getVisit, getBoxes, getLocations } from '../cache.js'
 import { useToast } from '../components/ToastContext.jsx'
 import Breadcrumbs from '../components/Breadcrumbs.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { useConfirm } from '../components/ConfirmContext.jsx'
 
 const DRAFT_KEY = 'delivery_draft';
 
@@ -39,6 +40,7 @@ export default function NewDelivery(){
   const rawBox = q.get('box');
   const boxFixed = rawBox && rawBox !== 'undefined' && rawBox !== 'null' ? rawBox : '';
   const toast = useToast();
+  const confirm = useConfirm();
 
   // Check for saved draft on mount
   const draft = loadDraft();
@@ -190,8 +192,12 @@ export default function NewDelivery(){
   function removeLine(idx){ setLines(prev => prev.filter((_, i) => i !== idx)) }
 
   // Clear draft and restore defaults
-  function discardDraft() {
-    if (!window.confirm('Discard this draft? All unsaved items will be lost.')) {
+  async function discardDraft() {
+    if (!await confirm({
+      title: 'Discard this draft?',
+      message: "The items you've added so far will be lost.",
+      confirmLabel: 'Discard', danger: true
+    })) {
       return;
     }
     clearDraft();
@@ -254,7 +260,7 @@ export default function NewDelivery(){
       {showDraftBanner && (
         <div className="card" style={{ background: '#e3f2fd', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Restored previous draft ({lines.length} items)</span>
-          <button className="btn" onClick={discardDraft} style={{ marginLeft: 8 }}>Discard</button>
+          <button className="btn danger" onClick={discardDraft} style={{ marginLeft: 8 }}>Discard</button>
         </div>
       )}
 
@@ -303,7 +309,7 @@ export default function NewDelivery(){
       <ItemPicker onAdd={(l) => { addLine(l); setErr(''); }} />
       <Cart lines={lines} items={items} onRemove={removeLine} />
 
-      {err && <div style={{ color: 'red', marginBottom: 12 }}>{err}</div>}
+      {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
 
       <button className="btn primary" onClick={submit} disabled={submitting}>
         {submitting ? 'Submitting…' : 'Submit box'}

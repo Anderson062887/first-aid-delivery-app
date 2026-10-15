@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useConfirm } from './ConfirmContext.jsx';
+import { useToast } from './ToastContext.jsx';
 import { getQueueCount, getFailedCount, QUEUE_CHANGED } from '../offline';
 
 function RoleNav() {
@@ -47,7 +49,7 @@ function QueueLink() {
   }, []);
   const total = counts.waiting + counts.failed;
   return (
-    <NavLink to="/offline-queue" className="btn" style={counts.failed ? { color: '#a8071a' } : undefined}>
+    <NavLink to="/offline-queue" className="btn" style={counts.failed ? { color: 'var(--danger)' } : undefined}>
       Offline Queue{total > 0 ? ` (${total})` : ''}
     </NavLink>
   );
@@ -58,19 +60,23 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   async function onLogout() {
     const pending = getQueueCount() + getFailedCount();
-    if (pending > 0 && !window.confirm(
-      `${pending} change${pending === 1 ? '' : 's'} on this device haven't synced yet. ` +
-      `Logging out deletes them. Press Cancel to stay and sync first.`
-    )) return;
+    if (pending > 0 && !await confirm({
+      title: 'Log out and lose unsynced changes?',
+      message: `${pending} change${pending === 1 ? '' : 's'} on this device haven't synced yet. ` +
+        `Logging out deletes them. Press Cancel to stay and sync first.`,
+      confirmLabel: 'Log out anyway', danger: true
+    })) return;
     try {
       await logout();
       // Plain /login: the next person should start at home, not on this user's page
       navigate('/login', { replace: true });
     } catch {
-      window.alert("Couldn't reach the server to log out. Try again when you're online.");
+      toast.error("Couldn't reach the server to log out. Try again when you're online.");
     }
   }
 

@@ -64,7 +64,7 @@ export default function Boxes(){
         )}
       </div>
 
-      {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
 
       {editing && <AddBox locationId={locationId} onAdded={() => load()} />}
 
@@ -148,7 +148,7 @@ function AddBox({ locationId, onAdded }){
           <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add box'}</button>
         </div>
       </div>
-      {err && <div style={{ color:'red', marginTop: 8 }}>{err}</div>}
+      {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
     </form>
   );
 }
@@ -195,14 +195,14 @@ function BoxRow({ box, locationId, onChanged }){
           <button className="btn" onClick={toggleActive} disabled={busy}>{active ? 'Retire' : 'Restore'}</button>
           {confirmDelete ? (
             <>
-              <button className="btn" onClick={remove} disabled={busy} style={{ color: '#b00020' }}>Confirm delete</button>
+              <button className="btn danger solid" onClick={remove} disabled={busy}>Confirm delete</button>
               <button className="btn" onClick={() => setConfirmDelete(false)} disabled={busy}>Cancel</button>
             </>
           ) : (
-            <button className="btn" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</button>
+            <button className="btn danger" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</button>
           )}
         </div>
-        {err && <div style={{ color:'red', marginTop: 6, fontSize: 13 }}>{err}</div>}
+        {err && <div className="error" style={{ marginTop: 6, fontSize: 13 }}>{err}</div>}
       </td>
     </tr>
   );

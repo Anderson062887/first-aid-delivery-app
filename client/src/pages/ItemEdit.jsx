@@ -118,7 +118,7 @@ export default function ItemEdit() {
         { label: `Edit: ${originalName}` }
       ]} />
       <h2>Edit Item</h2>
-      {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
+      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
       <form className="card form-card" onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
         <div>
           <label>Name</label>
@@ -162,10 +162,10 @@ export default function ItemEdit() {
       </form>
 
       {/* Danger Zone */}
-      <div className="card form-card" style={{ margin: '24px auto 0', border: '1px solid #c62828' }}>
+      <div className="card form-card" style={{ margin: '24px auto 0', border: '1px solid var(--danger)' }}>
         <div className="danger-zone-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
-            <strong style={{ color: '#c62828' }}>Danger Zone</strong>
+            <strong className="error">Danger Zone</strong>
             <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.8 }}>
               Permanently delete this item
             </p>
@@ -173,8 +173,7 @@ export default function ItemEdit() {
           {!showDelete && (
             <button
               type="button"
-              className="btn"
-              style={{ background: '#fff', color: '#c62828', borderColor: '#c62828' }}
+              className="btn danger"
               onClick={() => setShowDelete(true)}
             >
               Delete Item
@@ -183,7 +182,7 @@ export default function ItemEdit() {
         </div>
 
         {showDelete && (
-          <div style={{ marginTop: 16, padding: 12, background: '#ffebee', borderRadius: 8 }}>
+          <div style={{ marginTop: 16, padding: 12, background: 'var(--danger-bg)', borderRadius: 8 }}>
             <p style={{ margin: '0 0 8px', fontSize: 14 }}>
               This action <strong>cannot be undone</strong>. This will permanently delete the item.
             </p>
@@ -200,8 +199,7 @@ export default function ItemEdit() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
-                className="btn"
-                style={{ background: '#c62828', color: '#fff', borderColor: '#c62828' }}
+                className="btn danger solid"
                 onClick={handleDelete}
                 disabled={deleting || deleteConfirm !== originalName}
               >

@@ -73,7 +73,7 @@ export default function Reports(){
     <div className="page">
       <h2>Reports / CSV Export</h2>
 
-      {err && <div style={{ color: 'red', marginBottom: 12, padding: '8px 12px', background: '#fee', borderRadius: 6 }}>{err}</div>}
+      {err && <div className="error-box" style={{ marginBottom: 12 }}>{err}</div>}
 
       <div className="card" style={{ display:'grid', gap:12 }}>
         <div className="row responsive-3">

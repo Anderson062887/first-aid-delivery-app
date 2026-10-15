@@ -33,7 +33,7 @@ export default function Login() {
           Your session has ended (it expired, or your account was disabled). Please sign in again.
         </div>
       )}
-      {err && <div style={{ color:'red', marginBottom:8 }}>{err}</div>}
+      {err && <div className="error" style={{ marginBottom:8 }}>{err}</div>}
       <form onSubmit={onSubmit} style={{ display:'grid', gap:10 }}>
         <div>
           <label>Email</label>

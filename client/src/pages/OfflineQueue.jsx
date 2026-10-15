@@ -4,8 +4,10 @@ import {
   isOnline, flushQueue, getQueue, removeFromQueue, clearQueue,
   getFailed, removeFailed, retryFailed, onSyncResult
 } from '../offline';
+import { useConfirm } from '../components/ConfirmContext.jsx';
 
 export default function OfflineQueue() {
+  const confirm = useConfirm();
   const [queue, setQueue] = useState([]);
   const [failed, setFailed] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -52,8 +54,12 @@ export default function OfflineQueue() {
     }
   }
 
-  function handleRemove(id) {
-    if (confirm('Remove this item from queue? Data will be lost.')) {
+  async function handleRemove(id) {
+    if (await confirm({
+      title: 'Remove this change?',
+      message: "It hasn't been sent to the server yet, so it will be lost.",
+      confirmLabel: 'Remove', danger: true
+    })) {
       removeFromQueue(id);
       setQueue(getQueue());
     }
@@ -65,15 +71,23 @@ export default function OfflineQueue() {
     if (online) await handleSync();
   }
 
-  function handleRemoveFailed(id) {
-    if (confirm('Remove this item? Data will be lost.')) {
+  async function handleRemoveFailed(id) {
+    if (await confirm({
+      title: 'Remove this change?',
+      message: 'It was never saved, so it will be lost.',
+      confirmLabel: 'Remove', danger: true
+    })) {
       removeFailed(id);
       reload();
     }
   }
 
-  function handleClearAll() {
-    if (confirm('Clear entire queue? All pending data will be lost.')) {
+  async function handleClearAll() {
+    if (await confirm({
+      title: 'Clear the whole queue?',
+      message: "None of these changes have reached the server. They'll all be lost.",
+      confirmLabel: 'Clear all', danger: true
+    })) {
       clearQueue();
       setQueue([]);
     }
@@ -107,7 +121,7 @@ export default function OfflineQueue() {
             width: 10,
             height: 10,
             borderRadius: '50%',
-            background: online ? '#28a745' : '#dc3545'
+            background: online ? 'var(--success)' : 'var(--danger)'
           }} />
           <span>{online ? 'Online' : 'Offline'}</span>
         </div>
@@ -129,7 +143,7 @@ export default function OfflineQueue() {
             {syncing ? 'Syncing...' : 'Sync Now'}
           </button>
           {queue.length > 0 && (
-            <button className="btn" onClick={handleClearAll} style={{ color: '#dc3545' }}>
+            <button className="btn danger" onClick={handleClearAll}>
               Clear All
             </button>
           )}
@@ -164,11 +178,7 @@ export default function OfflineQueue() {
                     </div>
                   )}
                 </div>
-                <button
-                  className="btn"
-                  onClick={() => handleRemove(item.id)}
-                  style={{ padding: '4px 8px', fontSize: 12 }}
-                >
+                <button className="btn danger" onClick={() => handleRemove(item.id)}>
                   Remove
                 </button>
               </div>
@@ -204,17 +214,15 @@ export default function OfflineQueue() {
                   <div style={{ fontSize: 13, opacity: 0.7 }}>
                     Queued: {formatTimestamp(item.ts)}
                   </div>
-                  <div style={{ fontSize: 13, color: '#a8071a', marginTop: 4 }}>
+                  <div className="error" style={{ fontSize: 13, marginTop: 4 }}>
                     {item.error || `Rejected (HTTP ${item.status})`}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn" onClick={() => handleRetry(item.id)} disabled={syncing}
-                    style={{ padding: '4px 8px', fontSize: 12 }}>
+                  <button className="btn" onClick={() => handleRetry(item.id)} disabled={syncing}>
                     Retry
                   </button>
-                  <button className="btn" onClick={() => handleRemoveFailed(item.id)}
-                    style={{ padding: '4px 8px', fontSize: 12 }}>
+                  <button className="btn danger" onClick={() => handleRemoveFailed(item.id)}>
                     Remove
                   </button>
                 </div>

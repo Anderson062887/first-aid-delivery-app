@@ -14,7 +14,7 @@ export default class ErrorBoundary extends Component {
   }
   render(){
     if (this.state.error) {
-      return <div className="card" style={{ color:'red' }}>
+      return <div className="card error">
         Something went wrong while rendering this page. Try going back, or reload.
       </div>;
     }

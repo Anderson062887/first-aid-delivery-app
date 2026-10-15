@@ -1,17 +1,75 @@
-:root { --pad: 14px; --gap: 12px; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; }
-header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); border-bottom:1px solid #eee; }
+:root {
+  --pad: 14px; --gap: 12px;
+
+  /* Colors: change them here, not in the pages */
+  --ink: #222;             /* main text, primary buttons */
+  --muted: #666;           /* secondary text */
+  --surface: #fff;         /* cards, inputs, buttons */
+  --surface-alt: #f9f9f9;  /* table headers, subtle panels */
+  --border: #eee;          /* card and table lines */
+  --border-strong: #ccc;   /* inputs and buttons */
+  --danger: #c62828;       /* errors, deletes */
+  --danger-bg: #fdecea;
+  --success: #2e7d32;
+  --success-bg: #eaf7ea;
+  --warning: #6b4e00;
+  --warning-bg: #fff8e6;
+  --info: #1565c0;
+  --focus: #1565c0;
+
+  --tap: 44px;             /* minimum height of anything you tap */
+}
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; color: var(--ink); background: var(--surface); }
+header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); border-bottom:1px solid var(--border); }
 nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .container { padding: var(--pad); max-width: 1100px; margin: 0 auto; }
-.card { border:1px solid #eee; border-radius: 10px; padding: var(--pad); margin-bottom: 12px; }
-.btn { padding:10px 14px; min-height: 40px; border-radius: 8px; border:1px solid #ccc; background:#fff; cursor:pointer; text-decoration: none; font-size: 14px; line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
-.btn.primary { background:#222; color:#fff; border-color:#222; }
-.input, select { padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; font-size: 16px; min-height: 40px; box-sizing: border-box; }
+.card { border:1px solid var(--border); border-radius: 10px; padding: var(--pad); margin-bottom: 12px; }
+.btn { padding:10px 14px; min-height: var(--tap); border-radius: 8px; border:1px solid var(--border-strong); background:var(--surface); color: var(--ink); cursor:pointer; text-decoration: none; font-size: 15px; line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+/* Anything that deletes or discards */
+.btn.danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+.btn.danger.solid { background: var(--danger); color: #fff; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.input, select { padding:10px; border-radius:8px; border:1px solid var(--border-strong); width:100%; font-size: 16px; min-height: var(--tap); box-sizing: border-box; }
 .table { width:100%; border-collapse: collapse; }
-.table th, .table td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
+.table th, .table td { border-bottom:1px solid var(--border); padding:8px; text-align:left; }
 .flex { display:flex; gap:var(--gap); align-items:center; }
 .row { display:flex; gap:var(--gap); }
 .row > * { flex:1; }
+
+/* Messages */
+.error { color: var(--danger); }
+.success { color: var(--success); }
+.muted { color: var(--muted); }
+.error-box { color: var(--danger); background: var(--danger-bg); padding: 8px 12px; border-radius: 6px; }
+
+/* Show where the keyboard is (mouse and touch clicks don't trigger it) */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn:focus-visible, .input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn.danger:focus-visible { outline-color: var(--danger); }
+
+/* Larger targets for checkboxes and radios on touch screens */
+@media (pointer: coarse) {
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; }
+}
+
+/* Confirm dialog */
+.confirm-backdrop {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.confirm-dialog {
+  background: var(--surface); color: var(--ink);
+  border-radius: 12px; padding: 20px;
+  width: 100%; max-width: 420px; box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.confirm-dialog h3 { margin: 0 0 8px; font-size: 18px; }
+.confirm-dialog p { margin: 0 0 16px; line-height: 1.45; }
+.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
 /* /new styles / */
 .filters {
    display: grid;
@@ -127,11 +185,11 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
     width: 100%;
   }
   .table tr {
-    border: 1px solid #eee;
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px var(--pad);
     margin-bottom: 12px;
-    background: #fff;
+    background: var(--surface);
   }
   .table td {
     border: 0;
@@ -158,7 +216,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .print-page {
   max-width: 900px;
   margin: 0 auto;
-  background: #fff;
+  background: var(--surface);
 }
 
 .print-header {
@@ -187,7 +245,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   margin-top: 8px;
 }
 .print-table th, .print-table td {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   padding: 6px 8px;
   text-align: left;
 }
@@ -201,7 +259,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 @media print {
   header, nav, .btn, .print-actions, .no-print { display: none !important; }
   .card { border: none; padding: 0; margin: 0; }
-  body { background: #fff; }
+  body { background: var(--surface); }
   .container { padding: 0; max-width: 100%; }
 }
 
@@ -219,14 +277,14 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   border-radius: 8px;
   overflow: hidden;
   flex: 0 0 auto;
-  border: 1px solid #eee;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 .print-logo img {
   display: block;
   width: 100%; height: 100%;
   object-fit: contain;
-  background: #fff;
+  background: var(--surface);
 }
 
 .print-company {
@@ -245,7 +303,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 .print-footer {
   margin-top: 16px;
   padding-top: 8px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   font-size: 12px;
   color: #444;
 }
@@ -257,7 +315,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
     bottom: 0;
     left: 0; right: 0;
     padding: 8px var(--pad);
-    background: #fff;
+    background: var(--surface);
   }
 
   /* Add bottom margin to body content so footer doesn't overlap */
@@ -286,15 +344,15 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 
 .items-table th {
   padding: 12px;
-  background: #f9f9f9;
+  background: var(--surface-alt);
   font-weight: 600;
-  border-bottom: 2px solid #ddd;
+  border-bottom: 2px solid var(--border-strong);
 }
 
 .items-table td {
   padding: 12px;
-  background: #fff;
-  border: 1px solid #eee;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 6px;
 }
 
@@ -306,11 +364,11 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   .items-table tr,
   .items-table td { display: block; width: 100%; }
   .items-table tr {
-    border: 1px solid #eee;
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px;
     margin-bottom: 12px;
-    background: #fff;
+    background: var(--surface);
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   }
   .items-table td {
@@ -328,7 +386,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   .items-table td:first-child {
     font-weight: 600;
     font-size: 1.05em;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
     padding-bottom: 10px;
     margin-bottom: 4px;
   }
@@ -342,10 +400,10 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
   position: sticky; top: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--gap); padding: var(--pad);
-  border-bottom: 1px solid #eee; background: #fff;
+  border-bottom: 1px solid var(--border); background: var(--surface);
 }
 
-.brand-link { text-decoration: none; color: #222; }
+.brand-link { text-decoration: none; color: var(--ink); }
 
 /* Right side (user + logout + burger) */
 .header-right { display: flex; align-items: center; gap: 8px; }
@@ -359,12 +417,12 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 /* Burger button (hidden on desktop) */
 .nav-toggle {
   display: none;
-  width: 40px; height: 32px;
-  border: 1px solid #ddd; border-radius: 8px; background: #fff;
+  width: var(--tap); height: var(--tap);
+  border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface);
   align-items: center; justify-content: center; gap: 4px;
   cursor: pointer; padding: 6px 8px;
 }
-.nav-toggle .bar { display: block; width: 18px; height: 2px; background: #222; }
+.nav-toggle .bar { display: block; width: 18px; height: 2px; background: var(--ink); }
 
 /* Mobile */
 @media (max-width: 720px) {
@@ -376,7 +434,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
     position: absolute; left: 0; right: 0;
     top: calc(56px + 1px);
     display: none; flex-direction: column; gap: 8px;
-    background: #fff; border-bottom: 1px solid #eee;
+    background: var(--surface); border-bottom: 1px solid var(--border);
     padding: var(--pad);
   }
   .nav-links.open { display: flex; }
@@ -385,7 +443,7 @@ nav a { margin-right: 10px; text-decoration:none; color:#333 }
 }
 
 /* Optional: highlight active route */
-a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
+a.active.btn { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 
 
 .brand-link {
@@ -400,7 +458,7 @@ a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
   height: 45px;
   object-fit: cover;
   border-radius: 50%;
-  /* border: 1px solid #eee; */
+  /* border: 1px solid var(--border); */
 }
 
 /* Right cluster: nav + user + hamburger */
@@ -420,8 +478,8 @@ a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
 
 /* Active nav highlight */
 .nav-links .btn.active {
-  border-color: #222;
-  box-shadow: inset 0 0 0 1px #222;
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 /* Greeting and logout */
@@ -430,11 +488,11 @@ a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
 /* Hamburger (hidden on desktop) */
 .nav-toggle {
   display: none;
-  width: 36px;
-  height: 32px;
-  border: 1px solid #ccc;
+  width: var(--tap);
+  height: var(--tap);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   align-items: center;
   justify-content: center;
   padding: 0 6px;
@@ -464,8 +522,8 @@ a.active.btn { border-color: #222; box-shadow: inset 0 0 0 1px #222; }
     right: 0;
     top: calc(100% - 1px);
     padding: 10px var(--pad);
-    background: #fff;
-    border-bottom: 1px solid #eee;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     box-shadow: 0 6px 16px rgba(0,0,0,.06);
   }
 
@@ -515,15 +573,15 @@ a.btn { text-decoration: none; }
 }
 
 .toast-success {
-  background: #2e7d32;
+  background: var(--success);
 }
 
 .toast-error {
-  background: #c62828;
+  background: var(--danger);
 }
 
 .toast-info {
-  background: #1565c0;
+  background: var(--info);
 }
 
 .toast-icon {
@@ -554,7 +612,7 @@ a.btn { text-decoration: none; }
   gap: 4px;
   font-size: 14px;
   margin-bottom: 12px;
-  color: #666;
+  color: var(--muted);
 }
 
 .breadcrumb-sep {
@@ -563,7 +621,7 @@ a.btn { text-decoration: none; }
 }
 
 .breadcrumb-link {
-  color: #1565c0;
+  color: var(--info);
   text-decoration: none;
 }
 
@@ -617,7 +675,7 @@ a.btn { text-decoration: none; }
   box-sizing: border-box;
 }
 .modal-dialog {
-  background: #fff;
+  background: var(--surface);
   width: 100%;
   max-width: 400px;
   box-sizing: border-box;

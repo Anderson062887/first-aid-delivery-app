@@ -142,7 +142,7 @@ export default function Dashboard(){
         </div>
       </div>
 
-      {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
       {loading && (
         <div style={{ display: 'grid', gap: 16 }}>
           <Skeleton.Card lines={2} />

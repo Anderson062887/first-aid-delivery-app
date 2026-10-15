@@ -185,8 +185,8 @@ export default function DeliveryEdit() {
             </div>
           </>
         )}
-        {err && <div style={{ color: 'red' }}>{err}</div>}
-        {msg && <div style={{ color: 'green' }}>{msg}</div>}
+        {err && <div className="error">{err}</div>}
+        {msg && <div className="success">{msg}</div>}
       </div>
 
       <div className="card" style={{ display: 'grid', gap: 12 }}>

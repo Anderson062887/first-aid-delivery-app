@@ -10,8 +10,8 @@ export default function Badge({ kind = 'default', children }) {
       whiteSpace: 'nowrap'
     },
     variants: {
-      completed: { background: '#eaf7ea', color: '#1f5132', borderColor: '#b7e1b7' },
-      partial:   { background: '#fff8e6', color: '#6b4e00', borderColor: '#f3d8a2' },
+      completed: { background: 'var(--success-bg)', color: '#1f5132', borderColor: '#b7e1b7' },
+      partial:   { background: 'var(--warning-bg)', color: 'var(--warning)', borderColor: '#f3d8a2' },
       no_access: { background: '#f0f4f8', color: '#334e68', borderColor: '#cbd2d9' },
       skipped:   { background: '#f0f4f8', color: '#334e68', borderColor: '#cbd2d9' },
       default:   { background: '#eef3ff', color: '#243b6b', borderColor: '#c9d7ff' }

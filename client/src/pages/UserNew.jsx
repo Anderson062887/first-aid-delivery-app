@@ -59,7 +59,7 @@ export default function UserNew(){
       ]} />
       <div className="card form-card" style={{ display:'grid', gap:12 }}>
         <h2 style={{ marginTop: 0 }}>New User</h2>
-        {err && <div style={{color:'red'}}>{err}</div>}
+        {err && <div className="error">{err}</div>}
         <div>
           <label>Name</label>
           <input className="input" value={name} onChange={e=>setName(e.target.value)} />
@@ -81,7 +81,7 @@ export default function UserNew(){
             <div style={{ marginTop: 8, fontSize: 13 }}>
               {passwordRules.map((rule, i) => (
                 <div key={i} style={{
-                  color: rule.passed ? '#28a745' : '#dc3545',
+                  color: rule.passed ? 'var(--success)' : 'var(--danger)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,

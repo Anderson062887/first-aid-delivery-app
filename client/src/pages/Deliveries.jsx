@@ -224,7 +224,7 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {err && <div style={{ color: 'red', margin: '12px 0' }}>{err}</div>}
+      {err && <div className="error" style={{ margin: '12px 0' }}>{err}</div>}
       {loading && <Skeleton.Table rows={5} cols={7} />}
 
       {!loading && grouped.length === 0 && (

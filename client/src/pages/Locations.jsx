@@ -86,7 +86,7 @@ export default function Locations(){
         <small style={{opacity:.7}}>Searching for: <code>{search || '— (all)'}</code></small>
       </div>
 
-      {err && <div style={{ color:'red', margin:'12px 0' }}>{err}</div>}
+      {err && <div className="error" style={{ margin:'12px 0' }}>{err}</div>}
       {loading && <Skeleton.List items={4} />}
 
       {!loading && locations.length === 0 && (

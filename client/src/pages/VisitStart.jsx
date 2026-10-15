@@ -56,7 +56,7 @@ export default function VisitStart(){
           {locations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
         </select>
 
-        {err && <div style={{ color: 'red', marginTop: 8 }}>{err}</div>}
+        {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
 
         <button className="btn primary" onClick={start} disabled={loading} style={{ marginTop: 12 }}>
           {loading ? 'Starting…' : 'Start Visit'}

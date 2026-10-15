@@ -49,7 +49,7 @@ export default function DeliveryDetail(){
     }
   }
 
-  if (err) return <div className="card" style={{color:'red'}}>{err}</div>;
+  if (err) return <div className="card error">{err}</div>;
   if (!delivery) return <div className="card">Loading…</div>;
 
   const when = delivery.deliveredAt || delivery.createdAt;

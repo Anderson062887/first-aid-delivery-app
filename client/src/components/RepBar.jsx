@@ -57,7 +57,7 @@ export default function RepBar({ onChange }) {
       </select>
 
       {!!repId && <span style={{ opacity:.7 }}>Selected rep is saved</span>}
-      {err && <span style={{ color:'red' }}>{err}</span>}
+      {err && <span className="error">{err}</span>}
     </div>
   );
 }

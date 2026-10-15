@@ -26,6 +26,7 @@ import Reports from './pages/Reports.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import SyncToast from './components/SyncToast.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import { ConfirmProvider } from './components/Confirm.jsx';
 import { useEffect } from 'react';
 import { api } from '../src/api.js'
 import { cacheItems, cacheLocations } from '../src/cache.js';
@@ -55,6 +56,7 @@ export default function App(){
 
   return (
     <ToastProvider>
+    <ConfirmProvider>
       <NavBar />
       <OnlineSyncGate />
       <SyncToast />
@@ -92,6 +94,7 @@ export default function App(){
         </Routes>
         </ErrorBoundary>
       </div>
+    </ConfirmProvider>
     </ToastProvider>
   )
 }

@@ -121,8 +121,8 @@ export default function ItemPicker({ onAdd }) {
             : 'No cached items available offline. Open Items once while online to cache them.'}
         </div>
       )}
-      {err && <div style={{ color:'red' }}>{err}</div>}
-      {validationErr && <div style={{ color:'red', marginBottom: 8 }}>{validationErr}</div>}
+      {err && <div className="error">{err}</div>}
+      {validationErr && <div className="error" style={{ marginBottom: 8 }}>{validationErr}</div>}
 
       <div className="row responsive-3">
         {/* Searchable Item Dropdown */}
@@ -217,7 +217,7 @@ export default function ItemPicker({ onAdd }) {
 
           {/* Selected item indicator */}
           {selectedItem && (
-            <div style={{ fontSize: 13, color: '#28a745', marginTop: 4 }}>
+            <div className="success" style={{ fontSize: 13, marginTop: 4 }}>
               Selected: {selectedItem.name} (${Number(selectedItem.pricePerPack || 0).toFixed(2)})
             </div>
           )}
