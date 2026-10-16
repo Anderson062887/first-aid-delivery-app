@@ -5,6 +5,7 @@ import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
+import { emptyUsage, addLineUsage, roundUsage } from '../utils/itemUsage.js';
 
 const r = Router();
 
@@ -69,8 +70,6 @@ async function loadSubmittedVisits(qs) {
 function addDelivery(agg, d) {
   agg.deliveries += 1;
   agg.items += (Array.isArray(d.lines) ? d.lines.length : 0);
-  agg.subtotal += Number(d.subtotal || 0);
-  agg.tax += Number(d.tax || 0);
   agg.total += Number(d.total || 0);
 }
 
@@ -94,7 +93,7 @@ r.get('/deliveries.csv', async (req, res) => {
         'DeliveryID','VisitID','DeliveredAt',
         'LocationID','Location','BoxID','BoxLabel','BoxSize',
         'RepName','Outcome','Note',
-        'Subtotal','Tax','Total','LineCount'
+        'Total','LineCount'
       ];
       res.write(headers.join(',') + '\n');
 
@@ -111,8 +110,6 @@ r.get('/deliveries.csv', async (req, res) => {
           d.visit?.rep?.name || d.rep?.name || d.repName || '',
           d.visit?.outcome || '',
           d.visit?.note || '',
-          Number(d.subtotal || 0).toFixed(2),
-          Number(d.tax || 0).toFixed(2),
           Number(d.total || 0).toFixed(2),
           Array.isArray(d.lines) ? d.lines.length : 0
         ].map(csvEscape);
@@ -121,13 +118,13 @@ r.get('/deliveries.csv', async (req, res) => {
       return res.end();
     }
 
-    // Default: mode=lines
+    // Default: mode=lines. Only the line's own total: repeating the delivery
+    // total on every line would multiply it when the column is summed.
     const headers = [
       'DeliveryID','VisitID','DeliveredAt',
       'LocationID','Location','BoxID','BoxLabel','BoxSize',
       'RepName','Outcome','Note',
-      'ItemID','ItemName','Packaging','Quantity','UnitPrice','LineTotal',
-      'Subtotal','Tax','Total'
+      'ItemID','ItemName','Packaging','Quantity','UnitPrice','LineTotal'
     ];
     res.write(headers.join(',') + '\n');
 
@@ -150,10 +147,7 @@ r.get('/deliveries.csv', async (req, res) => {
       if (lines.length === 0) {
         const row = [
           ...common,
-          '', '', '', '', '', '',
-          Number(d.subtotal || 0).toFixed(2),
-          Number(d.tax || 0).toFixed(2),
-          Number(d.total || 0).toFixed(2)
+          '', '', '', '', '', ''
         ];
         res.write(row.join(',') + '\n');
       } else {
@@ -165,10 +159,7 @@ r.get('/deliveries.csv', async (req, res) => {
             l.packaging || '',
             (Number(l.quantity)).toString(),
             Number(l.unitPrice || 0).toFixed(2),
-            Number(l.lineTotal || 0).toFixed(2),
-            Number(d.subtotal || 0).toFixed(2),
-            Number(d.tax || 0).toFixed(2),
-            Number(d.total || 0).toFixed(2)
+            Number(l.lineTotal || 0).toFixed(2)
           ].map(csvEscape);
           res.write(row.join(',') + '\n');
         }
@@ -191,26 +182,22 @@ r.get('/items-summary.csv', async (req, res) => {
   try {
     const deliveries = await loadDeliveriesWithFilters(req.query);
 
-    // Aggregate by item
+    // Aggregate by item. Cases and single units are counted separately;
+    // TotalUnits converts cases with the item's units per case.
     const byItem = new Map(); // key = itemId
     for (const d of deliveries) {
-      const lines = Array.isArray(d.lines) ? d.lines : [];
-      for (const l of lines) {
+      for (const l of (Array.isArray(d.lines) ? d.lines : [])) {
         const id = l.item?._id?.toString() || 'unknown';
         if (!byItem.has(id)) {
           byItem.set(id, {
             itemId: id,
             itemName: l.item?.name || 'Unknown Item',
-            packaging: l.packaging || '',
-            totalQty: 0,
-            totalAmount: 0,
-            deliveries: 0
+            sku: l.item?.sku || '',
+            unitsPerPack: Number(l.item?.unitsPerPack) || 1,
+            ...emptyUsage()
           });
         }
-        const agg = byItem.get(id);
-        agg.totalQty += Number(l.quantity) || 0;
-        agg.totalAmount += Number(l.lineTotal) || 0;
-        agg.deliveries += 1;
+        addLineUsage(byItem.get(id), l);
       }
     }
 
@@ -218,17 +205,21 @@ r.get('/items-summary.csv', async (req, res) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="items_summary_${dtStamp}.csv"`);
 
-    const headers = ['ItemID','ItemName','Packaging','TotalQuantity','TotalAmount','LineCount'];
+    const headers = ['ItemID','ItemName','SKU','UnitsPerCase','Cases','Each','TotalUnits','TotalAmount','LineCount'];
     res.write(headers.join(',') + '\n');
 
-    for (const agg of byItem.values()) {
+    const rows = [...byItem.values()].map(roundUsage).sort((a, b) => b.units - a.units);
+    for (const agg of rows) {
       const row = [
         agg.itemId,
         agg.itemName,
-        agg.packaging,
-        agg.totalQty.toString(),
-        agg.totalAmount.toFixed(2),
-        agg.deliveries.toString()
+        agg.sku,
+        agg.unitsPerPack,
+        agg.cases,
+        agg.each,
+        agg.units,
+        agg.amount.toFixed(2),
+        agg.lines
       ].map(csvEscape);
       res.write(row.join(',') + '\n');
     }
@@ -262,8 +253,6 @@ r.get('/reps.csv', async (req, res) => {
           visits: new Set(),   // unique visit ids
           deliveries: 0,       // boxes (rows)
           items: 0,            // line items
-          subtotal: 0,
-          tax: 0,
           total: 0,
           outcomes: { completed:0, partial:0, no_access:0, skipped:0, other:0 }
         });
@@ -304,7 +293,7 @@ r.get('/reps.csv', async (req, res) => {
 
     const headers = [
       'RepID','RepName','VisitCount','DeliveryCount','LineItems',
-      'Subtotal','Tax','Total',
+      'Total',
       'Completed','Partial','NoAccess','Skipped','Other'
     ];
     res.write(headers.join(',') + '\n');
@@ -316,8 +305,6 @@ r.get('/reps.csv', async (req, res) => {
         agg.visits.size.toString(),
         agg.deliveries.toString(),
         agg.items.toString(),
-        agg.subtotal.toFixed(2),
-        agg.tax.toFixed(2),
         agg.total.toFixed(2),
         agg.outcomes.completed.toString(),
         agg.outcomes.partial.toString(),
@@ -355,8 +342,7 @@ r.get('/location-history.csv', async (req, res) => {
       'LocationID','Location',
       'VisitID','DeliveredAt','RepName','Outcome','Note',
       'DeliveryID','BoxLabel','BoxSize',
-      'ItemID','ItemName','Packaging','Quantity','UnitPrice','LineTotal',
-      'DeliverySubtotal','DeliveryTax','DeliveryTotal'
+      'ItemID','ItemName','Packaging','Quantity','UnitPrice','LineTotal'
     ];
     res.write(headers.join(',') + '\n');
 
@@ -378,10 +364,7 @@ r.get('/location-history.csv', async (req, res) => {
       if (lines.length === 0) {
         const row = [
           ...base,
-          '', '', '', '', '', '',
-          Number(d.subtotal || 0).toFixed(2),
-          Number(d.tax || 0).toFixed(2),
-          Number(d.total || 0).toFixed(2)
+          '', '', '', '', '', ''
         ];
         res.write(row.join(',') + '\n');
       } else {
@@ -393,10 +376,7 @@ r.get('/location-history.csv', async (req, res) => {
             l.packaging || '',
             (Number(l.quantity)).toString(),
             Number(l.unitPrice || 0).toFixed(2),
-            Number(l.lineTotal || 0).toFixed(2),
-            Number(d.subtotal || 0).toFixed(2),
-            Number(d.tax || 0).toFixed(2),
-            Number(d.total || 0).toFixed(2)
+            Number(l.lineTotal || 0).toFixed(2)
           ].map(csvEscape);
           res.write(row.join(',') + '\n');
         }

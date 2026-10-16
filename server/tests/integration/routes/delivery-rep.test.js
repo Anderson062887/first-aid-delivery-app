@@ -54,8 +54,9 @@ describe('deliveries record the rep account', () => {
 
     // reps.csv: two rows with their own RepIDs, nothing left without one
     const csv = await request(app).get('/api/exports/reps.csv').set('Cookie', authCookie(admin)).expect(200);
-    const rows = csv.text.trim().split('\n').slice(1).map(l => l.split(','));
-    const byId = Object.fromEntries(rows.map(r => [r[0], r[7]]));
+    const [header, ...rows] = csv.text.trim().split('\n').map(l => l.split(','));
+    const total = header.indexOf('Total');
+    const byId = Object.fromEntries(rows.map(r => [r[0], r[total]]));
     expect(byId).toEqual({ [String(samA._id)]: '10.00', [String(samB._id)]: '30.00' });
 
     // Deliveries list ?repId= now includes visit-less deliveries

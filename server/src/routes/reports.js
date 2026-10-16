@@ -4,6 +4,7 @@ import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { isAdmin } from '../middleware/auth.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
+import { emptyUsage, addLineUsage, roundUsage } from '../utils/itemUsage.js';
 
 const r = Router();
 
@@ -31,7 +32,7 @@ async function loadDeliveries({ from, to, location, tz, scope }) {
     .populate('rep', 'name email')
     .populate('location', 'name')
     .populate('box', 'label size')
-    .populate('lines.item', 'name') // item name
+    .populate('lines.item', 'name unitsPerPack') // unitsPerPack turns cases into units
     .lean();
 
   return rows;
@@ -56,7 +57,9 @@ async function loadSubmittedVisits({ from, to, location, tz, scope }) {
 
 /**
  * GET /api/reports/items-usage?from&to&location&limit=10
- * Returns top N items by quantity and amount in range.
+ * Returns the top N items by units delivered in range.
+ * Cases and single units ("each") are counted separately, and `units` adds
+ * them up as single units (a case counts as the item's unitsPerPack).
  */
 r.get('/items-usage', async (req, res) => {
   try {
@@ -65,21 +68,18 @@ r.get('/items-usage', async (req, res) => {
 
     const deliveries = await loadDeliveries({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) });
 
-    const map = new Map(); // itemId -> { itemId, name, quantity, amount }
+    const map = new Map(); // itemId -> usage
     for (const d of deliveries) {
-      const lines = Array.isArray(d.lines) ? d.lines : [];
-      for (const l of lines) {
+      for (const l of (Array.isArray(d.lines) ? d.lines : [])) {
         const id = l.item?._id?.toString() || 'unknown';
-        const name = l.item?.name || 'Unknown Item';
-        if (!map.has(id)) map.set(id, { itemId: id, name, quantity: 0, amount: 0 });
-        const agg = map.get(id);
-        agg.quantity += Number(l.quantity) || 0;
-        agg.amount   += Number(l.lineTotal) || 0;
+        if (!map.has(id)) map.set(id, { itemId: id, name: l.item?.name || 'Unknown Item', ...emptyUsage() });
+        addLineUsage(map.get(id), l);
       }
     }
 
     const rows = Array.from(map.values())
-      .sort((a,b) => b.quantity - a.quantity)
+      .map(roundUsage)
+      .sort((a,b) => b.units - a.units || b.amount - a.amount)
       .slice(0, limit);
 
     res.json({ from, to, location, rows });

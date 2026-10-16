@@ -27,6 +27,20 @@ function toISODate(d) {
   return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
 }
 
+// Shows how the unit total breaks down into cases and single units
+function ItemTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const r = payload[0].payload;
+  return (
+    <div className="card" style={{ margin: 0, padding: '8px 12px', fontSize: 14 }}>
+      <div className="strong">{r.name}</div>
+      <div>{r.units} units</div>
+      <div className="hint">{r.cases} case{r.cases === 1 ? '' : 's'} + {r.each} single</div>
+      <div className="hint">${r.amount}</div>
+    </div>
+  );
+}
+
 export default function Dashboard(){
   const { user } = useAuth();
   // Reports only include the signed-in rep's own work unless they are an admin
@@ -74,7 +88,9 @@ export default function Dashboard(){
         ]);
         if (cancelled) return;
 
-        setItemsData((items.rows || []).map(r => ({ name: r.name, quantity: r.quantity, amount: Number(r.amount).toFixed(2) })));
+        setItemsData((items.rows || []).map(r => ({
+          name: r.name, units: r.units, cases: r.cases, each: r.each, amount: Number(r.amount).toFixed(2)
+        })));
         const repRows = reps.rows || [];
         // Two reps can share a name: add the email so their bars can be told apart
         const nameCount = repRows.reduce((m, r) => m.set(r.repName, (m.get(r.repName) || 0) + 1), new Map());
@@ -152,15 +168,15 @@ export default function Dashboard(){
       {!loading && (
         <>
           <div className="card">
-            <h3>{isAdmin ? 'Top Items' : 'My Top Items'}</h3>
+            <h3>{isAdmin ? 'Top Items' : 'My Top Items'} <span className="hint">(units delivered; a case counts as its units)</span></h3>
             <div className="chart">
               <ResponsiveContainer>
                 <BarChart data={itemsData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="quantity" fill="#165ca8" radius={[4, 4, 0, 0]} />
+                  <Tooltip content={<ItemTooltip />} />
+                  <Bar dataKey="units" name="Units" fill="#165ca8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

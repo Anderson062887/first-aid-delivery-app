@@ -113,7 +113,7 @@ describe('Reports API', () => {
       expect(outcomes.body.counts).toEqual({ completed: 0, partial: 0, no_access: 1, skipped: 1, other: 0 });
 
       const items = await request(app).get('/api/reports/items-usage').set('Cookie', bobCookie).expect(200);
-      expect(items.body.rows).toEqual([expect.objectContaining({ quantity: 2, amount: 14 })]);
+      expect(items.body.rows).toEqual([expect.objectContaining({ each: 2, cases: 0, units: 2, amount: 14 })]);
 
       // Alice is an admin: everyone, including Bob
       const all = await request(app).get('/api/reports/rep-productivity').set('Cookie', cookie).expect(200);
