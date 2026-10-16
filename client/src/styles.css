@@ -69,6 +69,33 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
 /* A row inside a card: a box, a queued change... */
 .list-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); }
 
+/* Tabs (Reports) */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; min-height: var(--tap); font: inherit; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+
+/* Toggle-style buttons, e.g. date presets */
+.btn.chip-btn { border-radius: 999px; padding: 8px 14px; }
+.btn.chip-btn.active { background: var(--brand-bg); border-color: var(--brand); color: var(--brand); }
+
+/* Report tables */
+.num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.report-table tfoot td { border-top: 2px solid var(--border-strong); border-bottom: 0; font-weight: 600; }
+.history-items { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 2px; font-size: 14px; }
+@media (max-width: 700px) {
+  /* Each item becomes a small card: name on top, then label/value lines */
+  .report-table tfoot { display: block; }
+  .report-table tr { box-sizing: border-box; }
+  .report-table td { box-sizing: border-box; }
+  .report-table td.num { text-align: right !important; }
+  .report-table td:first-child { font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 2px; }
+  .report-table td:first-child::before, .report-table td:empty { display: none; }
+  .report-table tfoot tr { background: var(--surface-alt); }
+  .report-table tfoot td { border-top: 0; }
+  .tab { padding: 10px 10px; }
+}
+
 /* Colored notices (banners and callouts) */
 .notice { border: 1px solid; border-radius: 8px; padding: 10px 12px; }
 .card.notice { padding: var(--pad); }

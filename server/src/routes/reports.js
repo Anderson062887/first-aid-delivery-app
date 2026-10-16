@@ -4,7 +4,8 @@ import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { isAdmin } from '../middleware/auth.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
-import { emptyUsage, addLineUsage, roundUsage } from '../utils/itemUsage.js';
+import { emptyUsage, addLineUsage, roundUsage, summarizeItems } from '../utils/itemUsage.js';
+import { buildLocationHistory } from '../utils/locationHistory.js';
 
 const r = Router();
 
@@ -32,7 +33,7 @@ async function loadDeliveries({ from, to, location, tz, scope }) {
     .populate('rep', 'name email')
     .populate('location', 'name')
     .populate('box', 'label size')
-    .populate('lines.item', 'name unitsPerPack') // unitsPerPack turns cases into units
+    .populate('lines.item', 'name sku unitsPerPack') // unitsPerPack turns cases into units
     .lean();
 
   return rows;
@@ -86,6 +87,40 @@ r.get('/items-usage', async (req, res) => {
   } catch (e) {
     console.error('items-usage failed:', e);
     res.status(500).json({ error: 'items-usage failed' });
+  }
+});
+
+/**
+ * GET /api/reports/items-summary?from&to&location
+ * Every item delivered in range: cases, single units, total units and amount,
+ * with grand totals. The on-screen version of items-summary.csv.
+ */
+r.get('/items-summary', async (req, res) => {
+  try {
+    const { from, to, location } = req.query;
+    const deliveries = await loadDeliveries({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) });
+    res.json({ from, to, location, ...summarizeItems(deliveries) });
+  } catch (e) {
+    console.error('items-summary failed:', e);
+    res.status(500).json({ error: 'items-summary failed' });
+  }
+});
+
+/**
+ * GET /api/reports/location-history?location&from&to
+ * One row per visit at that location (newest first), including visits where
+ * nothing was refilled. Reps only see their own visits.
+ */
+r.get('/location-history', async (req, res) => {
+  try {
+    const { from, to, location } = req.query;
+    if (!location) return res.status(400).json({ error: 'Pick a location' });
+    const history = await buildLocationHistory({ location, from, to, tz: req.query.tz, scope: scopeFor(req.user) });
+    if (!history) return res.status(404).json({ error: 'Location not found' });
+    res.json({ from, to, ...history });
+  } catch (e) {
+    console.error('location-history failed:', e);
+    res.status(500).json({ error: 'location-history failed' });
   }
 });
 

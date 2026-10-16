@@ -1,185 +1,334 @@
 // client/src/pages/Reports.jsx
 import { useEffect, useState } from 'react';
-import { api, usersApi, userTimeZone } from '../api';
+import { Link, useSearchParams } from 'react-router-dom';
+import { api, usersApi, userTimeZone, reportsApi } from '../api';
 import { useAuth } from '../auth/AuthContext.jsx';
+import Badge from '../components/Badge.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import { DATE_PRESETS } from '../reportDates.js';
 
-export default function Reports(){
+const TABS = [
+  { key: 'items', label: 'Items delivered' },
+  { key: 'history', label: 'Location history' },
+  { key: 'downloads', label: 'Other downloads' },
+];
+
+const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+const outcomeLabel = (o) => (o || '').replace('_', ' ');
+const qtyText = (cases, each) => [
+  cases ? `${cases} case${cases === 1 ? '' : 's'}` : '',
+  each ? `${each} each` : ''
+].filter(Boolean).join(' + ') || '0';
+
+function csvUrl(base, params) {
+  const u = new URLSearchParams();
+  if (params.from || params.to) u.set('tz', userTimeZone());
+  Object.entries(params).forEach(([k, v]) => { if (v) u.set(k, v); });
+  return `${base}?${u.toString()}`;
+}
+
+export default function Reports() {
   const { user } = useAuth();
   const isAdmin = !!user?.roles?.includes('admin');
+  const [params, setParams] = useSearchParams();
+  const tab = TABS.some(t => t.key === params.get('tab')) ? params.get('tab') : 'items';
 
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [location, setLocation] = useState('');
-  const [repId, setRepId] = useState('');
-  const [repName, setRepName] = useState('');
+  const [[from, to], setRange] = useState(() => DATE_PRESETS[0].range(new Date()));
+  // Tab and location live in the address, so a report can be bookmarked or shared
+  const location = params.get('location') || '';
+  const setQuery = (next) => {
+    const merged = { tab, location, ...next };
+    setParams(Object.fromEntries(Object.entries(merged).filter(([, v]) => v)), { replace: true });
+  };
+  const setLocation = (id) => setQuery({ location: id });
   const [locations, setLocations] = useState([]);
-  const [reps, setReps] = useState([]);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const locs = await api.locations.list('');
-        if (!cancelled) setLocations(Array.isArray(locs) ? locs : []);
-      } catch {}
-      if (isAdmin) {
-        const arr = await usersApi.list();
-        if (!cancelled) setReps(Array.isArray(arr) ? arr : []);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isAdmin]);
+    api.locations.list('').then(l => setLocations(Array.isArray(l) ? l : [])).catch(() => {});
+  }, []);
 
-  function qs(base, params) {
-    const u = new URLSearchParams();
-    if (params.from || params.to) u.set('tz', userTimeZone());
-    Object.entries(params).forEach(([k,v]) => {
-      if (v !== undefined && v !== null && v !== '') u.set(k, v);
-    });
-    return `${base}?${u.toString()}`;
-  }
+  const activePreset = DATE_PRESETS.find(p => {
+    const [f, t] = p.range(new Date());
+    return f === from && t === to;
+  })?.key;
 
-  async function download(url, namePrefix){
+  async function download(url, namePrefix) {
     setErr('');
     const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) {
-      const t = await res.text().catch(()=> '');
-      setErr(`Export failed (${res.status}): ${t.slice(0,160)}`);
+      let msg = `Download failed (${res.status})`;
+      try { msg = (await res.json()).error || msg; } catch { /* not JSON */ }
+      setErr(msg);
       return;
     }
     const blob = await res.blob();
     const a = document.createElement('a');
-    const ts = new Date().toISOString().slice(0,10);
     a.href = URL.createObjectURL(blob);
-    a.download = `${namePrefix}_${ts}.csv`;
+    a.download = `${namePrefix}_${from || 'start'}_to_${to || 'today'}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(a.href);
   }
 
-  function commonParams(extra = {}) {
-    const p = {
-      from, to, location,
-      repName: repName || undefined,
-      ...extra
-    };
-    if (isAdmin && repId) p.repId = repId;
-    return p;
-  }
-
   return (
     <div className="page">
-      <h2>Reports / CSV Export</h2>
+      <h2>Reports</h2>
 
-      {err && <div className="error-box mb">{err}</div>}
+      <div className="tabs mb" role="tablist">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`tab ${tab === t.key ? 'active' : ''}`}
+            onClick={() => { setErr(''); setQuery({ tab: t.key }); }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="card stack">
+        <div className="actions" aria-label="Date range">
+          {DATE_PRESETS.map(p => (
+            <button
+              key={p.key}
+              className={`btn chip-btn ${activePreset === p.key ? 'active' : ''}`}
+              aria-pressed={activePreset === p.key}
+              onClick={() => setRange(p.range(new Date()))}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="row responsive-3">
           <div>
-            <label>From (date)</label>
-            <input className="input" type="date" value={from} onChange={e=>setFrom(e.target.value)} />
+            <label htmlFor="r-from">From</label>
+            <input id="r-from" className="input" type="date" value={from} onChange={e => setRange([e.target.value, to])} />
           </div>
           <div>
-            <label>To (date)</label>
-            <input className="input" type="date" value={to} onChange={e=>setTo(e.target.value)} />
+            <label htmlFor="r-to">To</label>
+            <input id="r-to" className="input" type="date" value={to} onChange={e => setRange([from, e.target.value])} />
           </div>
           <div>
-            <label>Location</label>
-            <select className="input" value={location} onChange={e=>setLocation(e.target.value)}>
-              <option value="">All</option>
-              {(locations||[]).map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
+            <label htmlFor="r-loc">Location</label>
+            <select id="r-loc" className="input" value={location} onChange={e => setLocation(e.target.value)}>
+              <option value="">{tab === 'history' ? 'Pick a location…' : 'All locations'}</option>
+              {locations.map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
             </select>
           </div>
         </div>
-
-        <div className="row responsive-3">
-          <div>
-            <label>Rep (by user)</label>
-            {isAdmin ? (
-              <select className="input" value={repId} onChange={e=>setRepId(e.target.value)}>
-                <option value="">Any</option>
-                {(reps||[]).map(u => (
-                  <option key={u._id} value={u._id}>
-                    {u.name} ({(u.roles||[]).join(', ') || '—'})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="input" style={{ display:'flex', alignItems:'center', height:38 }}>All reps</div>
-            )}
-          </div>
-          <div>
-            <label>Rep name contains</label>
-            <input className="input" placeholder="e.g. Maria" value={repName} onChange={e=>setRepName(e.target.value)} />
-          </div>
-          <div style={{ display:'flex', alignItems:'flex-end' }}>
-            <button className="btn" onClick={()=>{ setFrom(''); setTo(''); setLocation(''); setRepId(''); setRepName(''); }}>
-              Clear
-            </button>
-          </div>
-        </div>
-
-        <div className="row">
-          {/* Existing ones */}
-          <button
-            className="btn primary"
-            onClick={() => download(qs('/api/exports/deliveries.csv', commonParams({ mode: 'lines' })), 'deliveries_lines')}
-          >
-            Download CSV — one row per line item
-          </button>
-          <button
-            className="btn"
-            onClick={() => download(qs('/api/exports/deliveries.csv', commonParams({ mode: 'deliveries' })), 'deliveries_summary')}
-          >
-            Download CSV — one row per delivery
-          </button>
-        </div>
-
-        <div className="row">
-          {/* New: Item summary */}
-          <button
-            className="btn"
-            onClick={() => download(qs('/api/exports/items-summary.csv', commonParams()), 'items_summary')}
-          >
-            Download CSV — item summary (totals)
-          </button>
-
-          {/* New: Rep productivity */}
-          <button
-            className="btn"
-            onClick={() => download(qs('/api/exports/reps.csv', commonParams()), 'rep_productivity')}
-          >
-            Download CSV — rep productivity
-          </button>
-
-          {/* New: Location history (requires a location) */}
-          <button
-            className="btn"
-            onClick={() => {
-              if (!location) { setErr('Pick a Location to export its history.'); return; }
-              download(qs('/api/exports/location-history.csv', commonParams()), 'location_history');
-            }}
-          >
-            Download CSV — location history
-          </button>
-        </div>
       </div>
 
-      <div className="card">
-        <div style={{ opacity:.85, fontSize:14 }}>
-          <strong>Tips</strong>
-          <ul>
-            <li><em>Item summary</em>: totals by item over the selected date range.</li>
-            <li><em>Rep productivity</em>: per-rep visits, boxes, line-items, totals and outcomes.</li>
-            <li><em>Location history</em>: pick one location to export an auditable line-by-line record.</li>
-            <li>Use date filters (From/To) to export a window (e.g., Jan 1 → Feb 1, or last 3 months).</li>
-            <li>Open CSVs in Google Sheets to chart & analyze.</li>
-          </ul>
-        </div>
-      </div>
+      {err && <div className="error-box mb">{err}</div>}
+
+      {tab === 'items' && (
+        <ItemsReport
+          from={from} to={to} location={location} canDownload={isAdmin}
+          onDownload={() => download(csvUrl('/api/exports/items-summary.csv', { from, to, location }), 'items_delivered')}
+        />
+      )}
+      {tab === 'history' && (
+        <LocationHistory
+          from={from} to={to} location={location} canDownload={isAdmin}
+          onDownload={() => download(csvUrl('/api/exports/location-history.csv', { from, to, location }), 'location_history')}
+        />
+      )}
+      {tab === 'downloads' && (
+        <OtherDownloads isAdmin={isAdmin} from={from} to={to} location={location} download={download} />
+      )}
     </div>
   );
 }
 
+function useReport(load, deps) {
+  const [state, setState] = useState({ loading: true, data: null, error: '' });
+  useEffect(() => {
+    let cancelled = false;
+    setState(s => ({ ...s, loading: true, error: '' }));
+    load()
+      .then(data => { if (!cancelled) setState({ loading: false, data, error: '' }); })
+      .catch(e => { if (!cancelled) setState({ loading: false, data: null, error: String(e?.message || e) }); });
+    return () => { cancelled = true; };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  return state;
+}
+
+function ItemsReport({ from, to, location, canDownload, onDownload }) {
+  const { loading, data, error } = useReport(() => reportsApi.itemsSummary({ from, to, location }), [from, to, location]);
+  const rows = data?.rows || [];
+  const totals = data?.totals;
+
+  return (
+    <div className="card">
+      <div className="between mb">
+        <div>
+          <h3 className="m0">Items delivered</h3>
+          {totals && (
+            <div className="hint">
+              {rows.length} item{rows.length === 1 ? '' : 's'} · {totals.units} units · {money(totals.amount)} across {data.deliveries} box refill{data.deliveries === 1 ? '' : 's'}
+            </div>
+          )}
+        </div>
+        {canDownload && <button className="btn" onClick={onDownload} disabled={!rows.length}>Download CSV</button>}
+      </div>
+
+      {loading && <Skeleton.Table rows={5} cols={6} />}
+      {!loading && error && <div className="error">{error}</div>}
+      {!loading && !error && rows.length === 0 && <div className="dim">Nothing was delivered in these dates.</div>}
+      {!loading && !error && rows.length > 0 && (
+        <div className="scroll-x">
+          <table className="table report-table">
+            <thead>
+              <tr>
+                <th>Item</th><th>SKU</th>
+                <th className="num">Cases</th><th className="num">Each</th>
+                <th className="num">Total units</th><th className="num">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.itemId}>
+                  <td data-label="Item" className="strong">{r.name}</td>
+                  <td data-label="SKU">{r.sku || '—'}</td>
+                  <td data-label="Cases" className="num"><span>{r.cases}{r.cases > 0 && <span className="hint"> × {r.unitsPerPack}</span>}</span></td>
+                  <td data-label="Each" className="num">{r.each}</td>
+                  <td data-label="Total units" className="num strong">{r.units}</td>
+                  <td data-label="Amount" className="num">{money(r.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td data-label="" className="strong">Total</td>
+                <td />
+                <td data-label="Cases" className="num">{totals.cases}</td>
+                <td data-label="Each" className="num">{totals.each}</td>
+                <td data-label="Total units" className="num strong">{totals.units}</td>
+                <td data-label="Amount" className="num strong">{money(totals.amount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LocationHistory({ from, to, location, canDownload, onDownload }) {
+  if (!location) {
+    return <div className="card dim">Pick a location above to see every visit there, newest first.</div>;
+  }
+  return <LocationHistoryFor from={from} to={to} location={location} canDownload={canDownload} onDownload={onDownload} />;
+}
+
+function LocationHistoryFor({ from, to, location, canDownload, onDownload }) {
+  const { loading, data, error } = useReport(() => reportsApi.locationHistory({ from, to, location }), [from, to, location]);
+  const rows = data?.rows || [];
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  const visits = rows.filter(r => r.visitId).length;
+
+  return (
+    <div className="card">
+      <div className="between mb">
+        <div>
+          <h3 className="m0">{data?.location?.name || 'Location history'}</h3>
+          {data && (
+            <div className="hint">
+              {visits} visit{visits === 1 ? '' : 's'} · {money(total)} delivered
+            </div>
+          )}
+        </div>
+        {canDownload && <button className="btn" onClick={onDownload} disabled={!rows.length}>Download CSV</button>}
+      </div>
+
+      {loading && <Skeleton.Table rows={4} cols={5} />}
+      {!loading && error && <div className="error">{error}</div>}
+      {!loading && !error && rows.length === 0 && <div className="dim">No visits here in these dates.</div>}
+      {!loading && !error && rows.length > 0 && (
+        <div className="stack-sm">
+          {rows.map((r, i) => (
+            <div key={r.visitId || `d${i}`} className="list-row history-row">
+              <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                <div className="inline" style={{ flexWrap: 'wrap' }}>
+                  <span className="strong">{new Date(r.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  {r.outcome
+                    ? <Badge kind={r.outcome}>{outcomeLabel(r.outcome)}</Badge>
+                    : <span className="chip todo">{r.status === 'open' ? 'in progress' : r.status}</span>}
+                </div>
+                <div className="hint">{r.repName || 'Unknown rep'}{r.boxes.length ? ` · ${r.boxes.length} box${r.boxes.length === 1 ? '' : 'es'} refilled (${r.boxes.join(', ')})` : ' · no boxes refilled'}</div>
+                {r.items.length > 0 && (
+                  <div className="history-items">
+                    {r.items.map(it => <span key={it.name}>{it.name}: {qtyText(it.cases, it.each)}</span>)}
+                  </div>
+                )}
+                {r.note && <div className="hint"><em>Note:</em> {r.note}</div>}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="strong">{money(r.total)}</div>
+                {r.visitId && <Link to={`/deliveries/visit/${r.visitId}`}>Details</Link>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OtherDownloads({ isAdmin, from, to, location, download }) {
+  const [repId, setRepId] = useState('');
+  const [reps, setReps] = useState([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    usersApi.list().then(arr => setReps(Array.isArray(arr) ? arr.filter(u => (u.roles || []).includes('rep')) : [])).catch(() => {});
+  }, [isAdmin]);
+
+  if (!isAdmin) return <div className="card dim">Downloads are available to admins.</div>;
+
+  const p = { from, to, location, repId };
+  return (
+    <div className="card stack">
+      <div style={{ maxWidth: 360 }}>
+        <label htmlFor="r-rep">Rep</label>
+        <select id="r-rep" className="input" value={repId} onChange={e => setRepId(e.target.value)}>
+          <option value="">All reps</option>
+          {reps.map(u => <option key={u._id} value={u._id}>{u.name}{u.active === false ? ' (inactive)' : ''}</option>)}
+        </select>
+      </div>
+      <div className="stack-sm">
+        <DownloadRow
+          title="Every line item"
+          text="One row per item on each box refill. Line-by-line detail for audits."
+          onClick={() => download(csvUrl('/api/exports/deliveries.csv', { ...p, mode: 'lines' }), 'line_items')}
+        />
+        <DownloadRow
+          title="Every box refill"
+          text="One row per box refilled, with its total."
+          onClick={() => download(csvUrl('/api/exports/deliveries.csv', { ...p, mode: 'deliveries' }), 'box_refills')}
+        />
+        <DownloadRow
+          title="Rep productivity"
+          text="Per rep: visits, boxes, line items, total, and visit outcomes."
+          onClick={() => download(csvUrl('/api/exports/reps.csv', p), 'rep_productivity')}
+        />
+      </div>
+      <p className="hint m0">Uses the dates and location above. Open the CSV in Excel or Google Sheets.</p>
+    </div>
+  );
+}
+
+function DownloadRow({ title, text, onClick }) {
+  return (
+    <div className="list-row">
+      <div style={{ flex: '1 1 240px' }}>
+        <div className="strong">{title}</div>
+        <div className="hint">{text}</div>
+      </div>
+      <button className="btn" onClick={onClick}>Download CSV</button>
+    </div>
+  );
+}

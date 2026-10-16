@@ -412,6 +412,19 @@ export const visitApi = {
 
 // ///////////////////////////////////
 
+function reportParams({ from, to, location }) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (from || to) params.set('tz', userTimeZone());
+  if (location) params.set('location', location);
+  return params.toString();
+}
+
+async function errorText(res, fallback) {
+  try { return (await res.json()).error || fallback; } catch { return fallback; }
+}
+
 export const reportsApi = {
   itemsUsage: async ({ from='', to='', location='', limit=10 } = {}) => {
     const params = new URLSearchParams();
@@ -432,6 +445,18 @@ export const reportsApi = {
     if (location) params.set('location', location);
     const r = await fetch(`/api/reports/rep-productivity?${params.toString()}`, { credentials:'include' });
     if (!r.ok) throw new Error('Failed to load rep productivity');
+    return r.json();
+  },
+  // Every item delivered in range, with cases/single units/total units and totals
+  itemsSummary: async ({ from='', to='', location='' } = {}) => {
+    const r = await fetch(`/api/reports/items-summary?${reportParams({ from, to, location })}`, { credentials:'include' });
+    if (!r.ok) throw new Error(await errorText(r, 'Failed to load the items report'));
+    return r.json();
+  },
+  // One row per visit at a location
+  locationHistory: async ({ from='', to='', location } = {}) => {
+    const r = await fetch(`/api/reports/location-history?${reportParams({ from, to, location })}`, { credentials:'include' });
+    if (!r.ok) throw new Error(await errorText(r, 'Failed to load the location history'));
     return r.json();
   },
   outcomes: async ({ from='', to='', location='' } = {}) => {

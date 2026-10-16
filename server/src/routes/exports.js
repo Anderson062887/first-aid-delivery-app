@@ -5,7 +5,8 @@ import Visit from '../models/Visit.js';
 import { dayRange } from '../utils/dates.js';
 import { escapeRegex } from '../utils/regex.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
-import { emptyUsage, addLineUsage, roundUsage } from '../utils/itemUsage.js';
+import { summarizeItems } from '../utils/itemUsage.js';
+import { buildLocationHistory, itemsText, localDateTime } from '../utils/locationHistory.js';
 
 const r = Router();
 
@@ -182,47 +183,23 @@ r.get('/items-summary.csv', async (req, res) => {
   try {
     const deliveries = await loadDeliveriesWithFilters(req.query);
 
-    // Aggregate by item. Cases and single units are counted separately;
-    // TotalUnits converts cases with the item's units per case.
-    const byItem = new Map(); // key = itemId
-    for (const d of deliveries) {
-      for (const l of (Array.isArray(d.lines) ? d.lines : [])) {
-        const id = l.item?._id?.toString() || 'unknown';
-        if (!byItem.has(id)) {
-          byItem.set(id, {
-            itemId: id,
-            itemName: l.item?.name || 'Unknown Item',
-            sku: l.item?.sku || '',
-            unitsPerPack: Number(l.item?.unitsPerPack) || 1,
-            ...emptyUsage()
-          });
-        }
-        addLineUsage(byItem.get(id), l);
-      }
-    }
+    const { rows, totals } = summarizeItems(deliveries);
 
     const dtStamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="items_summary_${dtStamp}.csv"`);
 
+    // Cases and single units are separate; TotalUnits converts cases with the item's units per case
     const headers = ['ItemID','ItemName','SKU','UnitsPerCase','Cases','Each','TotalUnits','TotalAmount','LineCount'];
     res.write(headers.join(',') + '\n');
-
-    const rows = [...byItem.values()].map(roundUsage).sort((a, b) => b.units - a.units);
     for (const agg of rows) {
       const row = [
-        agg.itemId,
-        agg.itemName,
-        agg.sku,
-        agg.unitsPerPack,
-        agg.cases,
-        agg.each,
-        agg.units,
-        agg.amount.toFixed(2),
-        agg.lines
+        agg.itemId, agg.name, agg.sku, agg.unitsPerPack,
+        agg.cases, agg.each, agg.units, agg.amount.toFixed(2), agg.lines
       ].map(csvEscape);
       res.write(row.join(',') + '\n');
     }
+    res.write(['', 'TOTAL', '', '', totals.cases, totals.each, totals.units, totals.amount.toFixed(2), totals.lines].map(csvEscape).join(',') + '\n');
     res.end();
   } catch (e) {
     console.error('items-summary export failed:', e);
@@ -323,66 +300,40 @@ r.get('/reps.csv', async (req, res) => {
 
 /**
  * GET /api/exports/location-history.csv
- * Requires: location=<id>
- * Optional: from, to
- * Produces: one row per line item (auditable full history for that location)
+ * Requires: location=<id>. Optional: from, to, tz.
+ * One row per visit at the location (newest first), including visits where
+ * nothing was refilled. Line-by-line detail: the line-item CSV filtered by location.
  */
 r.get('/location-history.csv', async (req, res) => {
   try {
-    const { location } = req.query || {};
+    const { location, from, to, tz } = req.query || {};
     if (!location) return res.status(400).json({ error: 'location is required' });
 
-    const deliveries = await loadDeliveriesWithFilters(req.query);
+    const history = await buildLocationHistory({ location, from, to, tz, scope: null });
+    if (!history) return res.status(404).json({ error: 'Location not found' });
 
     const dtStamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="location_history_${dtStamp}.csv"`);
 
-    const headers = [
-      'LocationID','Location',
-      'VisitID','DeliveredAt','RepName','Outcome','Note',
-      'DeliveryID','BoxLabel','BoxSize',
-      'ItemID','ItemName','Packaging','Quantity','UnitPrice','LineTotal'
-    ];
+    const headers = ['Date','Location','Rep','Status','Outcome','Note','BoxesRefilled','Boxes','Items','Total','VisitID'];
     res.write(headers.join(',') + '\n');
-
-    for (const d of deliveries) {
-      const base = [
-        d.location?._id || '',
-        d.location?.name || '',
-        d.visit?._id || '',
-        d.deliveredAt ? new Date(d.deliveredAt).toISOString() : '',
-        d.visit?.rep?.name || d.rep?.name || d.repName || '',
-        d.visit?.outcome || '',
-        d.visit?.note || '',
-        d._id,
-        d.box?.label || '',
-        d.box?.size || ''
+    for (const v of history.rows) {
+      const row = [
+        localDateTime(v.date, tz),
+        history.location.name,
+        v.repName,
+        v.status,
+        v.outcome,
+        v.note,
+        v.boxes.length,
+        v.boxes.join('; '),
+        itemsText(v.items),
+        v.total.toFixed(2),
+        v.visitId
       ].map(csvEscape);
-
-      const lines = Array.isArray(d.lines) ? d.lines : [];
-      if (lines.length === 0) {
-        const row = [
-          ...base,
-          '', '', '', '', '', ''
-        ];
-        res.write(row.join(',') + '\n');
-      } else {
-        for (const l of lines) {
-          const row = [
-            ...base,
-            l.item?._id || '',
-            l.item?.name || '',
-            l.packaging || '',
-            (Number(l.quantity)).toString(),
-            Number(l.unitPrice || 0).toFixed(2),
-            Number(l.lineTotal || 0).toFixed(2)
-          ].map(csvEscape);
-          res.write(row.join(',') + '\n');
-        }
-      }
+      res.write(row.join(',') + '\n');
     }
-
     res.end();
   } catch (e) {
     console.error('location-history export failed:', e);

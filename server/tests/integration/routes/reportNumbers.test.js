@@ -66,10 +66,10 @@ describe('Report numbers', () => {
       expect(sum).toBeCloseTo(22.5);
     });
 
-    it('location history has no repeated delivery totals either', async () => {
+    it('location history has one row per visit, so its Total column adds up', async () => {
       const res = await request(app).get(`/api/exports/location-history.csv?location=${location._id}`).set('Cookie', cookie).expect(200);
-      expect(res.text.split('\n')[0]).not.toMatch(/DeliveryTotal|DeliverySubtotal|DeliveryTax/);
-      expect(rows(res.text).reduce((s, r) => s + Number(r.LineTotal), 0)).toBeCloseTo(22.5);
+      expect(res.text.split('\n')[0]).not.toMatch(/DeliveryTotal|DeliverySubtotal|DeliveryTax|LineTotal/);
+      expect(rows(res.text).reduce((s, r) => s + Number(r.Total), 0)).toBeCloseTo(22.5);
     });
 
     it('per-delivery and per-rep CSVs keep one Total and drop the always-zero tax', async () => {
