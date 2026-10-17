@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 let currentUser;
 vi.mock('../../src/auth/AuthContext.jsx', () => ({
@@ -16,13 +16,31 @@ vi.mock('../../src/api', () => ({
   locationsApi: { get: vi.fn(async () => ({ name: 'Plant' })) }
 }));
 
-import Boxes from '../../src/pages/Boxes.jsx';
+import Boxes, { BoxesPanel } from '../../src/pages/Boxes.jsx';
 
 const renderPage = () => render(
-  <MemoryRouter initialEntries={['/boxes?location=L1']}><Boxes /></MemoryRouter>
+  <MemoryRouter><BoxesPanel locationId="L1" /></MemoryRouter>
 );
 
-describe('Boxes page', () => {
+function Where() { const l = useLocation(); return <div data-testid="where">{l.pathname}{l.search}</div>; }
+const renderOldUrl = (url) => render(
+  <MemoryRouter initialEntries={[url]}>
+    <Routes><Route path="/boxes" element={<Boxes />} /><Route path="*" element={<Where />} /></Routes>
+  </MemoryRouter>
+);
+
+describe('old /boxes links', () => {
+  it("send one location's boxes to its detail page", () => {
+    renderOldUrl('/boxes?location=L1');
+    expect(screen.getByTestId('where')).toHaveTextContent('/locations/L1');
+  });
+  it('send the all-boxes list to the Boxes report', () => {
+    renderOldUrl('/boxes');
+    expect(screen.getByTestId('where')).toHaveTextContent('/reports?tab=boxes');
+  });
+});
+
+describe('Box list on a location', () => {
   beforeEach(() => { currentUser = { _id: 'a1', name: 'Admin', roles: ['admin'] }; });
 
   it('opens view-only for admins; editing needs "Manage boxes"', async () => {

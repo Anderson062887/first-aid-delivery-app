@@ -116,6 +116,11 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
 .location-name { color: var(--ink); text-decoration: none; font-size: 17px; }
 .location-name:hover { color: var(--brand); text-decoration: underline; }
 
+/* Boxes report: one block per location */
+.box-group { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.box-group:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.box-group .table { margin-top: 6px; }
+
 /* Progress bar (visits in progress) */
 .progress { height: 8px; background: #e8ecf1; border-radius: 999px; overflow: hidden; }
 .progress > span { display: block; height: 100%; background: var(--brand); border-radius: 999px; }

@@ -18,7 +18,6 @@ function RoleNav() {
           <NavLink to="/items" className="btn">Items</NavLink>
           <NavLink to="/reports" className="btn">Reports</NavLink>
           <NavLink to="/locations" className="btn">Locations</NavLink>
-          <NavLink to="/boxes" className="btn">Boxes</NavLink>
           <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
           <NavLink to="/users" className="btn">Users</NavLink>
           <QueueLink />

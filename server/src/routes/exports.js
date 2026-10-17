@@ -7,6 +7,7 @@ import { escapeRegex } from '../utils/regex.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
 import { summarizeItems } from '../utils/itemUsage.js';
 import { buildLocationHistory, itemsText, localDateTime } from '../utils/locationHistory.js';
+import { buildBoxesReport } from '../utils/boxesReport.js';
 
 const r = Router();
 
@@ -342,6 +343,34 @@ r.get('/location-history.csv', async (req, res) => {
   } catch (e) {
     console.error('location-history export failed:', e);
     res.status(500).json({ error: 'location-history export failed' });
+  }
+});
+
+/**
+ * GET /api/exports/boxes.csv?from&to&location&tz
+ * One row per box (active and retired) with refills in the dates; same as the Boxes report.
+ */
+r.get('/boxes.csv', async (req, res) => {
+  try {
+    const { from, to, location, tz } = req.query || {};
+    const { rows, totals } = await buildBoxesReport({ from, to, location, tz, scope: null });
+
+    const dtStamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="boxes_${dtStamp}.csv"`);
+
+    res.write(['Location','Box','Size','Status','LastRefilled','RefillsInDates','AmountInDates','BoxID'].join(',') + '\n');
+    for (const b of rows) {
+      res.write([
+        b.location, b.label, b.size, b.active ? 'active' : 'retired',
+        localDateTime(b.lastRefilled, tz), b.refills, b.amount.toFixed(2), b.boxId
+      ].map(csvEscape).join(',') + '\n');
+    }
+    res.write(['TOTAL', `${totals.active} active, ${totals.retired} retired`, '', '', '', totals.refills, totals.amount.toFixed(2), ''].map(csvEscape).join(',') + '\n');
+    res.end();
+  } catch (e) {
+    console.error('boxes export failed:', e);
+    res.status(500).json({ error: 'boxes export failed' });
   }
 });
 

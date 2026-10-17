@@ -462,6 +462,12 @@ export const reportsApi = {
     if (!r.ok) throw new Error(await errorText(r, 'Failed to load the items report'));
     return r.json();
   },
+  // Every box by location, with refills in the dates
+  boxes: async ({ from='', to='', location='' } = {}) => {
+    const r = await fetch(`/api/reports/boxes?${reportParams({ from, to, location })}`, { credentials:'include' });
+    if (!r.ok) throw new Error(await errorText(r, 'Failed to load the boxes report'));
+    return r.json();
+  },
   // One row per visit at a location
   locationHistory: async ({ from='', to='', location } = {}) => {
     const r = await fetch(`/api/reports/location-history?${reportParams({ from, to, location })}`, { credentials:'include' });

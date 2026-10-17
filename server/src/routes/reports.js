@@ -6,6 +6,7 @@ import { isAdmin } from '../middleware/auth.js';
 import { repDeliveriesFilter } from '../utils/repDeliveries.js';
 import { emptyUsage, addLineUsage, roundUsage, summarizeItems } from '../utils/itemUsage.js';
 import { buildLocationHistory } from '../utils/locationHistory.js';
+import { buildBoxesReport } from '../utils/boxesReport.js';
 
 const r = Router();
 
@@ -121,6 +122,20 @@ r.get('/location-history', async (req, res) => {
   } catch (e) {
     console.error('location-history failed:', e);
     res.status(500).json({ error: 'location-history failed' });
+  }
+});
+
+/**
+ * GET /api/reports/boxes?from&to&location
+ * Every box by location: size, status, last refilled, and refills/amount in the dates.
+ */
+r.get('/boxes', async (req, res) => {
+  try {
+    const { from, to, location } = req.query;
+    res.json({ from, to, location, ...await buildBoxesReport({ from, to, location, tz: req.query.tz, scope: scopeFor(req.user) }) });
+  } catch (e) {
+    console.error('boxes report failed:', e);
+    res.status(500).json({ error: 'boxes report failed' });
   }
 });
 

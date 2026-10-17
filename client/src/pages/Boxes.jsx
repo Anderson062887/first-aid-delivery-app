@@ -1,32 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, locationsApi } from '../api';
-import { useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-import Breadcrumbs from '../components/Breadcrumbs.jsx';
 
 const SIZES = ['S', 'M', 'L', 'XL'];
 
 function useQuery(){ return new URLSearchParams(useLocation().search); }
 
-// /boxes: every box (admins), or one location's boxes (?location=)
+// The old Boxes page: a location's boxes now live on its detail page, and
+// the list of every box is a report.
 export default function Boxes(){
-  const q = useQuery();
-  const locationId = q.get('location') || '';
-  const [locationName, setLocationName] = useState('');
-  return (
-    <div>
-      <Breadcrumbs items={locationId ? [
-        { label: 'Locations', to: '/locations' },
-        { label: locationName || 'Location', to: `/locations/${locationId}` },
-        { label: 'Boxes' }
-      ] : [{ label: 'Boxes' }]} />
-      <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
-      <div className="card">
-        <BoxesPanel locationId={locationId} onLocationName={setLocationName} />
-      </div>
-    </div>
-  );
+  const locationId = useQuery().get('location');
+  return <Navigate replace to={locationId ? `/locations/${locationId}` : '/reports?tab=boxes'} />;
 }
 
 // The box list, with "Manage boxes" for admins when it's one location's boxes.

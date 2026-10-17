@@ -10,6 +10,7 @@ import { DATE_PRESETS } from '../reportDates.js';
 const TABS = [
   { key: 'items', label: 'Items delivered' },
   { key: 'history', label: 'Location history' },
+  { key: 'boxes', label: 'Boxes' },
   { key: 'downloads', label: 'Other downloads' },
 ];
 
@@ -134,6 +135,12 @@ export default function Reports() {
         <LocationHistory
           from={from} to={to} location={location} canDownload={isAdmin}
           onDownload={() => download(csvUrl('/api/exports/location-history.csv', { from, to, location }), 'location_history')}
+        />
+      )}
+      {tab === 'boxes' && (
+        <BoxesReport
+          from={from} to={to} location={location} canDownload={isAdmin}
+          onDownload={() => download(csvUrl('/api/exports/boxes.csv', { from, to, location }), 'boxes')}
         />
       )}
       {tab === 'downloads' && (
@@ -274,6 +281,59 @@ function LocationHistoryFor({ from, to, location, canDownload, onDownload }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function BoxesReport({ from, to, location, canDownload, onDownload }) {
+  const { loading, data, error } = useReport(() => reportsApi.boxes({ from, to, location }), [from, to, location]);
+  const rows = data?.rows || [];
+  const t = data?.totals;
+  const groups = (data?.locations || []).map(l => ({ ...l, boxes: rows.filter(r => r.locationId === l.locationId) }));
+
+  return (
+    <div className="card">
+      <div className="between mb">
+        <div>
+          <h3 className="m0">Boxes</h3>
+          {t && (
+            <div className="hint">
+              {t.active} active box{t.active === 1 ? '' : 'es'} at {t.locations} location{t.locations === 1 ? '' : 's'}
+              {t.retired ? ` · ${t.retired} retired` : ''} · {t.refills} refill{t.refills === 1 ? '' : 's'} ({money(t.amount)}) in these dates
+            </div>
+          )}
+        </div>
+        {canDownload && <button className="btn" onClick={onDownload} disabled={!rows.length}>Download CSV</button>}
+      </div>
+
+      {loading && <Skeleton.Table rows={5} cols={5} />}
+      {!loading && error && <div className="error">{error}</div>}
+      {!loading && !error && rows.length === 0 && <div className="dim">No boxes yet.</div>}
+      {!loading && !error && groups.map(g => (
+        <div key={g.locationId} className="box-group">
+          <div className="between">
+            <Link className="strong" to={`/locations/${g.locationId}`}>{g.location}</Link>
+            <span className="hint">{g.active} box{g.active === 1 ? '' : 'es'}{g.retired ? ` + ${g.retired} retired` : ''}</span>
+          </div>
+          <table className="table report-table">
+            <thead>
+              <tr><th>Box</th><th>Size</th><th>Status</th><th>Last refilled</th><th className="num">Refills</th><th className="num">Amount</th></tr>
+            </thead>
+            <tbody>
+              {g.boxes.map(b => (
+                <tr key={b.boxId} style={b.active ? undefined : { opacity: 0.6 }}>
+                  <td data-label="Box" className="strong">{b.label}</td>
+                  <td data-label="Size">{b.size}</td>
+                  <td data-label="Status">{b.active ? 'Active' : 'Retired'}</td>
+                  <td data-label="Last refilled">{b.lastRefilled ? new Date(b.lastRefilled).toLocaleDateString() : 'Never'}</td>
+                  <td data-label="Refills" className="num">{b.refills}</td>
+                  <td data-label="Amount" className="num">{money(b.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 }
