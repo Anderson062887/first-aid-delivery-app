@@ -112,6 +112,10 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
 /* One-line summary of where this refill goes */
 .refill-target { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 
+/* Location name on a card links to its detail page */
+.location-name { color: var(--ink); text-decoration: none; font-size: 17px; }
+.location-name:hover { color: var(--brand); text-decoration: underline; }
+
 /* Progress bar (visits in progress) */
 .progress { height: 8px; background: #e8ecf1; border-radius: 999px; overflow: hidden; }
 .progress > span { display: block; height: 100%; background: var(--brand); border-radius: 999px; }

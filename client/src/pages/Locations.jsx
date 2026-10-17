@@ -120,13 +120,17 @@ export default function Locations(){
           return (
             <div className="card stack" key={loc._id}>
               <div className="between">
-                <div className="strong">{loc.name}</div>
+                <Link className="strong location-name" to={`/locations/${loc._id}`}>{loc.name}</Link>
                 <span className="hint">{lastVisitText(lastVisitDate(visits))}</span>
               </div>
               {loc.address && (
                 <div className="dim">
-                  {loc.address.street || ''}{loc.address.city ? `, ${loc.address.city}` : ''}
-                  {loc.address.state ? `, ${loc.address.state}` : ''} {loc.address.zip || ''}
+                  {[loc.address.street, loc.address.city, loc.address.state, loc.address.zip].filter(Boolean).join(', ')}
+                </div>
+              )}
+              {visits[0]?.outcome && (
+                <div className="inline hint">
+                  Last outcome: <Badge kind={outcomeKind(visits[0].outcome)}>{visits[0].outcome.replace('_', ' ')}</Badge>
                 </div>
               )}
 
@@ -136,40 +140,7 @@ export default function Locations(){
                     ? `Continue visit (${open.boxesDone} of ${open.boxesTotal} boxes)`
                     : 'Start visit'}
                 </button>
-                <Link className="btn" to={`/boxes?location=${loc._id}`}>
-                  View Boxes
-                </Link>
-                {/* Editing a location is admin-only (the page itself is) */}
-                {isAdmin && (
-                  <Link className="btn" to={`/locations/${loc._id}/edit`}>
-                    Edit
-                  </Link>
-                )}
-              </div>
-
-              <div className="mt">
-                <div style={{ fontWeight:600, marginBottom:4 }}>{isAdmin ? 'Recent visits' : 'Your recent visits'}</div>
-                {visits.length === 0 && <div className="dim">{isAdmin ? 'No visits yet.' : "You haven't visited yet."}</div>}
-                {visits.length > 0 && (
-                  <ul style={{ margin:0, paddingLeft:18, display:'grid', gap:6 }}>
-                    {visits.map(v => (
-                      <li key={v._id} style={{ marginBottom:2, listStyle:'disc' }}>
-                        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                          <span title={new Date(v.startedAt).toLocaleString()}>
-                            {new Date(v.startedAt || v.submittedAt || v.createdAt).toLocaleDateString()}
-                          </span>
-                          <span>— {v.rep?.name || 'Unknown rep'}</span>
-                          {v.outcome && <Badge kind={outcomeKind(v.outcome)}>{v.outcome.replace('_',' ')}</Badge>}
-                        </div>
-                        {v.note && (
-                          <div style={{ marginTop:2, fontSize:12, opacity:.85 }}>
-                            <em>Note:</em> {v.note}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <Link className="btn" to={`/locations/${loc._id}`}>Details</Link>
               </div>
             </div>
           );

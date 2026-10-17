@@ -3,7 +3,10 @@ import app from '../../../src/app.js';
 import Location from '../../../src/models/Location.js';
 import Visit from '../../../src/models/Visit.js';
 import User from '../../../src/models/User.js';
-import { createUser, createLocation, createVisit } from '../../helpers/fixtures.js';
+import Box from '../../../src/models/Box.js';
+import Item from '../../../src/models/Item.js';
+import Delivery from '../../../src/models/Delivery.js';
+import { createUser, createLocation, createVisit, createBox, createItem } from '../../helpers/fixtures.js';
 import { authCookie } from '../../helpers/auth.js';
 
 describe('GET /api/visits/recent-by-location', () => {
@@ -18,7 +21,15 @@ describe('GET /api/visits/recent-by-location', () => {
     await createVisit(Visit, rep._id, a._id, { status: 'submitted', outcome: 'partial', startedAt: day(5), submittedAt: day(5) });
     await createVisit(Visit, rep._id, a._id, { status: 'submitted', outcome: 'skipped', startedAt: day(3), submittedAt: day(3) });
     // still open, but the newest: must not be pushed behind submitted visits
-    await createVisit(Visit, rep._id, a._id, { startedAt: day(9) });
+    // (it has a refilled box; empty open visits are left out)
+    const open = await createVisit(Visit, rep._id, a._id, { startedAt: day(9) });
+    const box = await createBox(Box, a._id);
+    const item = await createItem(Item);
+    await Delivery.create({
+      location: a._id, box: box._id, visit: open._id, rep: rep._id,
+      lines: [{ item: item._id, quantity: 1, packaging: 'each', unitPrice: 1, lineTotal: 1 }],
+      subtotal: 1, tax: 0, total: 1
+    });
     await createVisit(Visit, rep._id, b._id, { status: 'submitted', outcome: 'no_access', startedAt: day(2), submittedAt: day(2) });
 
     const res = await request(app).get('/api/visits/recent-by-location?per=2')

@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import NavBar from './components/NavBar.jsx';
 import Dashboard from './pages/Dashboard.jsx'
 import RepHome from './pages/RepHome.jsx'
+import LocationDetail from './pages/LocationDetail.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
 import Locations from './pages/Locations.jsx'
 import Boxes from './pages/Boxes.jsx'
@@ -76,6 +77,7 @@ export default function App(){
                   <Route path="/" element={<Home/>} />
                   <Route path="/dashboard" element={<Dashboard/>} />
                   <Route path="/locations" element={<Locations/>} />
+                  <Route path="/locations/:id" element={<LocationDetail/>} />
                   <Route path="/boxes" element={<Boxes/>} />
                   <Route path="/deliveries" element={<Deliveries/>} />
                   <Route path="/deliveries/new" element={<NewDelivery/>} />

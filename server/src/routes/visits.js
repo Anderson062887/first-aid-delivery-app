@@ -221,10 +221,12 @@ r.get('/my-open', async (req, res) => {
         location: v.location,
         startedAt: v.startedAt,
         boxesTotal: active.size,
-        boxesDone: refilled.filter(id => active.has(String(id))).length
+        boxesDone: refilled.filter(id => active.has(String(id))).length,
+        refilled: refilled.length
       };
     }));
-    res.json(rows.filter(v => v.location));
+    // A visit counts once a box is refilled; an empty one is probably a mistaken start
+    res.json(rows.filter(v => v.location && v.refilled > 0).map(({ refilled: _r, ...v }) => v));
   } catch (e) {
     console.error('My open visits failed:', e);
     res.status(500).json({ error: 'Failed to load visits in progress' });
@@ -247,18 +249,23 @@ r.get('/recent-by-location', async (req, res) => {
     { $addFields: { at: { $ifNull: ['$submittedAt', { $ifNull: ['$startedAt', '$createdAt'] }] } } },
     { $sort: { location: 1, at: -1, _id: -1 } },
     { $group: { _id: '$location', ids: { $push: '$_id' } } },
-    { $project: { ids: { $slice: ['$ids', per] } } }
+    // a few extra, in case some are empty open visits that get left out below
+    { $project: { ids: { $slice: ['$ids', per + 3] } } }
   ]).allowDiskUse(true);
 
-  const visits = await Visit.find({ _id: { $in: groups.flatMap(g => g.ids) } })
+  const found = await Visit.find({ _id: { $in: groups.flatMap(g => g.ids) } })
     .select('location rep outcome note status startedAt submittedAt createdAt')
     .populate('rep', 'name')
     .lean();
+  // Leave out open visits where nothing was refilled (started by mistake, or just begun)
+  const openIds = found.filter(v => v.status === 'open').map(v => v._id);
+  const withDeliveries = new Set((await Delivery.distinct('visit', { visit: { $in: openIds } })).map(String));
+  const visits = found.filter(v => v.status !== 'open' || withDeliveries.has(String(v._id)));
   const byId = new Map(visits.map(v => [String(v._id), v]));
 
   const result = {};
   for (const g of groups) {
-    result[String(g._id)] = g.ids.map(id => byId.get(String(id))).filter(Boolean);
+    result[String(g._id)] = g.ids.map(id => byId.get(String(id))).filter(Boolean).slice(0, per);
   }
   res.json(result);
 });
@@ -277,6 +284,29 @@ r.get('/:id', async (req,res)=>{
     boxId: b._id, label: b.label, size: b.size, covered: covered.has(String(b._id))
   }));
   res.json({ visit: v, boxes: coverage });
+});
+
+/**
+ * DELETE /api/visits/:id
+ * Cancel a visit started by mistake: only while it is open and nothing has
+ * been refilled on it. The visit's rep or an admin.
+ */
+r.delete('/:id', async (req, res) => {
+  try {
+    const v = await loadVisitForChange(req, res);
+    if (!v) return;
+    if (v.status !== 'open') {
+      return res.status(409).json({ error: 'This visit was already submitted, so it can\'t be cancelled.' });
+    }
+    if (await Delivery.exists({ visit: v._id })) {
+      return res.status(409).json({ error: 'Boxes were already refilled on this visit, so it can\'t be cancelled. Submit it instead.' });
+    }
+    await Visit.deleteOne({ _id: v._id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Cancel visit failed:', e);
+    res.status(500).json({ error: 'Cancel visit failed' });
+  }
 });
 
 r.patch('/:id/note', async (req, res) => {

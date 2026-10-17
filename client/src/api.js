@@ -386,6 +386,10 @@ export const visitApi = {
     }
   },
 
+  // Cancel a visit started by mistake (only while nothing is refilled on it).
+  // Needs a connection, like starting one.
+  cancel: (id) => http(`/visits/${id}`, { method: 'DELETE' }),
+
   // Latest visits of every location in one request: { [locationId]: [visit] }
   recentByLocation: (per = 2) => http(`/visits/recent-by-location?per=${per}`),
 

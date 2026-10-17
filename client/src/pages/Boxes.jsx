@@ -9,15 +9,35 @@ const SIZES = ['S', 'M', 'L', 'XL'];
 
 function useQuery(){ return new URLSearchParams(useLocation().search); }
 
+// /boxes: every box (admins), or one location's boxes (?location=)
 export default function Boxes(){
   const q = useQuery();
   const locationId = q.get('location') || '';
+  const [locationName, setLocationName] = useState('');
+  return (
+    <div>
+      <Breadcrumbs items={locationId ? [
+        { label: 'Locations', to: '/locations' },
+        { label: locationName || 'Location', to: `/locations/${locationId}` },
+        { label: 'Boxes' }
+      ] : [{ label: 'Boxes' }]} />
+      <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
+      <div className="card">
+        <BoxesPanel locationId={locationId} onLocationName={setLocationName} />
+      </div>
+    </div>
+  );
+}
+
+// The box list, with "Manage boxes" for admins when it's one location's boxes.
+// Used on the Boxes page and on a location's detail page.
+export function BoxesPanel({ locationId = '', onLocationName }){
   const { user } = useAuth();
   // Boxes are managed per location, by admins
   const canManage = !!user?.roles?.includes('admin') && !!locationId;
 
   const [boxes, setBoxes] = useState([]);
-  const [locationName, setLocationName] = useState('');
+  const setLocationName = useCallback((n) => onLocationName?.(n), [onLocationName]);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   // The page opens view-only; an admin has to choose to edit, so a stray tap changes nothing
@@ -44,7 +64,7 @@ export default function Boxes(){
     } finally {
       if (!isCancelled()) setLoading(false);
     }
-  }, [locationId, canManage]);
+  }, [locationId, canManage, setLocationName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,13 +74,7 @@ export default function Boxes(){
 
   return (
     <div>
-      <Breadcrumbs items={[
-        { label: 'Locations', to: '/locations' },
-        { label: locationName ? `Boxes — ${locationName}` : 'Boxes' }
-      ]} />
-      <h2>Boxes {locationName ? `— ${locationName}` : ''}</h2>
-
-      <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="actions mb">
         {canManage && (
           editing
             ? <button className="btn primary" onClick={() => setEditing(false)}>Done</button>
@@ -75,40 +89,39 @@ export default function Boxes(){
       {loading && <Skeleton.Table rows={4} cols={3} />}
 
       {!loading && boxes.length === 0 && (
-        <div className="card">No boxes found for this location.</div>
+        <div className="dim">No boxes found for this location.</div>
       )}
 
-      {!loading && boxes.length > 0 && (
-        <div className="card scroll-x">
+      {!loading && boxes.length > 0 && !editing && (
+        <div className="stack-sm">
+          {boxes.map(b => (
+            <div key={b._id} className="list-row" style={b.active === false ? { opacity: 0.6 } : undefined}>
+              <div>
+                <div className="strong">{b.label}</div>
+                <div className="hint">Size {b.size}{!locationId && b.location?.name ? ` · ${b.location.name}` : ''}</div>
+              </div>
+              {canManage && (b.active === false
+                ? <span className="chip todo">Retired</span>
+                : <span className="chip ok">Active</span>)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && boxes.length > 0 && editing && (
+        <div className="scroll-x">
           <table className="table items-table">
             <thead>
-              <tr>
-                <th>Label</th>
-                <th>Size</th>
-                <th>{canManage ? 'Status' : 'Location'}</th>
-                {editing && <th></th>}
-              </tr>
+              <tr><th>Label</th><th>Size</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
-              {boxes.map(b => editing
-                ? <BoxRow key={b._id} box={b} locationId={locationId} onChanged={() => load()} />
-                : (
-                  <tr key={b._id} style={b.active === false ? { opacity: 0.55 } : undefined}>
-                    <td data-label="Label">{b.label}</td>
-                    <td data-label="Size">{b.size}</td>
-                    {canManage
-                      ? <td data-label="Status">{b.active === false ? 'Retired' : 'Active'}</td>
-                      : <td data-label="Location">{b.location?.name || '—'}</td>}
-                  </tr>
-                ))}
+              {boxes.map(b => <BoxRow key={b._id} box={b} locationId={locationId} onChanged={() => load()} />)}
             </tbody>
           </table>
-          {editing && (
-            <p style={{ fontSize: 13, opacity: 0.75, marginTop: 12 }}>
-              Retired boxes keep their delivery history but no longer need refilling, so they
-              don't block a visit from being completed.
-            </p>
-          )}
+          <p className="hint" style={{ marginTop: 12 }}>
+            Retired boxes keep their delivery history but no longer need refilling, so they
+            don't block a visit from being completed.
+          </p>
         </div>
       )}
     </div>

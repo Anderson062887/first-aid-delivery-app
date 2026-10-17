@@ -6,7 +6,7 @@
 //   cd client && DEMO_API=http://localhost:4790 npx vite --port 5180
 //   open http://localhost:5180
 //
-// Demo logins (password for both: Demo-pass-1)
+// Demo logins (password for both: demo1234)
 //   admin@demo.test   admin + rep
 //   rep@demo.test     rep only
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -16,7 +16,7 @@ process.env.JWT_SECRET ||= 'demo-sandbox-secret';
 process.env.JWT_EXPIRES ||= '7d';
 process.env.NODE_ENV ||= 'development';
 const PORT = Number(process.env.DEMO_PORT) || 4790;
-const PASSWORD = 'Demo-pass-1';
+const PASSWORD = 'demo1234';
 
 const mongo = await MongoMemoryServer.create();
 const { connectDB } = await import('../src/db.js');

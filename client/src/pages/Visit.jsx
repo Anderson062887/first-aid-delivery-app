@@ -4,6 +4,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import Breadcrumbs from '../components/Breadcrumbs.jsx';
+import { useConfirm } from '../components/ConfirmContext.jsx';
+import { useToast } from '../components/ToastContext.jsx';
 import { cacheVisit, cacheBoxes, cacheItems, getBoxes } from '../cache.js';
 import { queuedBoxIdsForVisit, onSyncResult } from '../offline';
 
@@ -23,6 +25,8 @@ function getBoxId(b) {
 export default function Visit(){
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const [visit, setVisit] = useState(null);
   const [boxes, setBoxes] = useState([]);
@@ -135,6 +139,23 @@ export default function Visit(){
     setOutcome(suggested);
   }, [suggested, readonly, visit?.outcome]);
 
+  // Started by mistake: nothing refilled (or waiting to sync) yet, so it can just go away
+  const canCancel = !readonly && visit?.status === 'open' && !anyCovered;
+  async function cancelVisit() {
+    if (!await confirm({
+      title: 'Cancel this visit?',
+      message: "Nothing has been refilled yet, so the visit will be removed as if it never started.",
+      confirmLabel: 'Cancel visit', cancelLabel: 'Keep visit', danger: true
+    })) return;
+    try {
+      await visitApi.cancel(id);
+      toast.success('Visit cancelled');
+      navigate('/locations');
+    } catch (e) {
+      setErr(String(e?.message || e));
+    }
+  }
+
   function handleSubmitClick() {
     setErr('');
     if (outcome === 'completed' && !allCovered) {
@@ -191,6 +212,12 @@ export default function Visit(){
             : '—'}
         </div>
         {visit.note && <div><strong>Note:</strong> {visit.note}</div>}
+        {canCancel && (
+          <div className="between mt">
+            <span className="hint">Started by mistake? Nothing has been refilled yet.</span>
+            <button className="btn danger" onClick={cancelVisit}>Cancel visit</button>
+          </div>
+        )}
       </div>
 
       <div className="card stack">

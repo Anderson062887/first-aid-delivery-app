@@ -49,7 +49,8 @@ export async function buildLocationHistory({ location, from, to, tz, scope }) {
   }
 
   const rows = [
-    ...visits.map(v => summarize({
+    // An open visit with nothing refilled yet isn't history (often a mistaken start)
+    ...visits.filter(v => v.status !== 'open' || byVisit.has(String(v._id))).map(v => summarize({
       visitId: String(v._id),
       date: v.submittedAt || v.startedAt,
       status: v.status,
