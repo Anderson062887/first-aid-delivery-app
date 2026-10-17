@@ -102,7 +102,7 @@ r.get('/deliveries.csv', async (req, res) => {
         const row = [
           d._id,
           d.visit?._id || '',
-          d.deliveredAt ? new Date(d.deliveredAt).toISOString() : '',
+          localDateTime(d.deliveredAt, req.query.tz),
           d.location?._id || '',
           d.location?.name || '',
           d.box?._id || '',
@@ -133,7 +133,7 @@ r.get('/deliveries.csv', async (req, res) => {
       const common = [
         d._id,
         d.visit?._id || '',
-        d.deliveredAt ? new Date(d.deliveredAt).toISOString() : '',
+        localDateTime(d.deliveredAt, req.query.tz),
         d.location?._id || '',
         d.location?.name || '',
         d.box?._id || '',
@@ -211,8 +211,10 @@ r.get('/items-summary.csv', async (req, res) => {
  * GET /api/exports/reps.csv
  * Per-rep productivity over filters
  * Filters: from, to, location, repId, repName
- * Money/boxes come from deliveries (by delivery date); outcome columns count
- * each submitted visit once (by submitted date), like /api/reports/rep-productivity.
+ * Money/boxes come from deliveries (by delivery date). VisitCount and the outcome
+ * columns count each submitted visit once (by submitted date), so the outcomes add
+ * up to VisitCount; OpenVisits are visits still in progress that have deliveries.
+ * Same numbers as /api/reports/rep-productivity.
  */
 r.get('/reps.csv', async (req, res) => {
   try {
@@ -227,7 +229,8 @@ r.get('/reps.csv', async (req, res) => {
         perRep.set(key, {
           repId,
           repName,
-          visits: new Set(),   // unique visit ids
+          visits: new Set(),   // submitted visit ids (each has one outcome)
+          openVisits: new Set(), // visits still in progress that have deliveries
           deliveries: 0,       // boxes (rows)
           items: 0,            // line items
           total: 0,
@@ -252,7 +255,7 @@ r.get('/reps.csv', async (req, res) => {
       const rep = d.visit?.rep || d.rep;
       if (!rep) { nameOnly.push(d); continue; }
       const agg = forRep(rep);
-      if (d.visit?._id) agg.visits.add(String(d.visit._id));
+      if (d.visit?.status === 'open') agg.openVisits.add(String(d.visit._id));
       addDelivery(agg, d);
     }
 
@@ -269,7 +272,7 @@ r.get('/reps.csv', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="rep_productivity_${dtStamp}.csv"`);
 
     const headers = [
-      'RepID','RepName','VisitCount','DeliveryCount','LineItems',
+      'RepID','RepName','VisitCount','OpenVisits','DeliveryCount','LineItems',
       'Total',
       'Completed','Partial','NoAccess','Skipped','Other'
     ];
@@ -280,6 +283,7 @@ r.get('/reps.csv', async (req, res) => {
         agg.repId,
         agg.repName,
         agg.visits.size.toString(),
+        agg.openVisits.size.toString(),
         agg.deliveries.toString(),
         agg.items.toString(),
         agg.total.toFixed(2),

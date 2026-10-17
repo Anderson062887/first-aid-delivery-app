@@ -144,7 +144,8 @@ r.get('/rep-productivity', async (req, res) => {
           repId,
           repName,
           repEmail,
-          visitIds: new Set(),
+          visitIds: new Set(),     // submitted visits (each has one outcome)
+          openVisitIds: new Set(), // visits still in progress that have deliveries
           deliveries: 0,
           lineItems: 0,
           subtotal: 0,
@@ -177,7 +178,7 @@ r.get('/rep-productivity', async (req, res) => {
       const rep = d.visit?.rep || d.rep;
       if (!rep) { nameOnly.push(d); continue; }
       const agg = forRep(rep);
-      if (d.visit?._id) agg.visitIds.add(String(d.visit._id));
+      if (d.visit?.status === 'open') agg.openVisitIds.add(String(d.visit._id));
       addDelivery(agg, d);
     }
 
@@ -195,6 +196,7 @@ r.get('/rep-productivity', async (req, res) => {
         repName: v.repName,
         repEmail: v.repEmail,
         visitCount: v.visitIds.size,
+        openVisits: v.openVisitIds.size,
         deliveries: v.deliveries,
         lineItems: v.lineItems,
         subtotal: v.subtotal,

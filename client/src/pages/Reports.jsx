@@ -22,7 +22,7 @@ const qtyText = (cases, each) => [
 
 function csvUrl(base, params) {
   const u = new URLSearchParams();
-  if (params.from || params.to) u.set('tz', userTimeZone());
+  u.set('tz', userTimeZone()); // dates and times in the CSV use the user's timezone
   Object.entries(params).forEach(([k, v]) => { if (v) u.set(k, v); });
   return `${base}?${u.toString()}`;
 }
