@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { byDue, lastVisitDate, lastVisitText } from '../visitDue.js';
 
 export default function Locations(){
   const { user } = useAuth();
@@ -12,6 +13,8 @@ export default function Locations(){
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState([]);
   const [visitsByLoc, setVisitsByLoc] = useState({});
+  const [openByLoc, setOpenByLoc] = useState({}); // my visits in progress, by location
+  const [sort, setSort] = useState('name');       // 'name' | 'due'
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
@@ -28,8 +31,16 @@ export default function Locations(){
     visitApi.recentByLocation(2)
       .then(map => { if (!cancelled) setVisitsByLoc(map && typeof map === 'object' ? map : {}); })
       .catch(() => {}); // the list still works without recent visits (e.g. offline)
+    visitApi.myOpen()
+      .then(list => {
+        if (cancelled || !Array.isArray(list)) return;
+        setOpenByLoc(Object.fromEntries(list.map(v => [String(v.location?._id), v])));
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  const shown = sort === 'due' ? [...locations].sort(byDue(visitsByLoc)) : locations;
 
   // Load locations whenever search changes
   useEffect(() => {
@@ -71,7 +82,10 @@ export default function Locations(){
 
   return (
     <div>
-      <h2>Locations</h2>
+      <div className="between">
+        <h2>Locations</h2>
+        {isAdmin && <Link className="btn primary" to="/locations/new">+ New Location</Link>}
+      </div>
 
       {/* <RepBar onChange={setRepId} /> */}
 
@@ -83,7 +97,13 @@ export default function Locations(){
           value={input}
           onChange={e=>setInput(e.target.value)}
         />
-        <small className="dim">Searching for: <code>{search || '— (all)'}</code></small>
+        <div className="inline">
+          <label htmlFor="loc-sort" className="m0">Sort</label>
+          <select id="loc-sort" className="input" style={{ width: 'auto' }} value={sort} onChange={e => setSort(e.target.value)}>
+            <option value="name">By name</option>
+            <option value="due">Due first (longest since last visit)</option>
+          </select>
+        </div>
       </div>
 
       {err && <div className="error my">{err}</div>}
@@ -94,11 +114,15 @@ export default function Locations(){
       )}
 
       <div className="stack">
-        {locations.map(loc => {
+        {shown.map(loc => {
           const visits = visitsByLoc[loc._id] || [];
+          const open = openByLoc[String(loc._id)];
           return (
             <div className="card stack" key={loc._id}>
-              <div className="strong">{loc.name}</div>
+              <div className="between">
+                <div className="strong">{loc.name}</div>
+                <span className="hint">{lastVisitText(lastVisitDate(visits))}</span>
+              </div>
               {loc.address && (
                 <div className="dim">
                   {loc.address.street || ''}{loc.address.city ? `, ${loc.address.city}` : ''}
@@ -108,7 +132,9 @@ export default function Locations(){
 
               <div className="action-row" style={{ marginTop: 6 }}>
                 <button className="btn primary" onClick={() => startVisit(loc._id)}>
-                  Start / Continue Visit
+                  {open
+                    ? `Continue visit (${open.boxesDone} of ${open.boxesTotal} boxes)`
+                    : 'Start visit'}
                 </button>
                 <Link className="btn" to={`/boxes?location=${loc._id}`}>
                   View Boxes

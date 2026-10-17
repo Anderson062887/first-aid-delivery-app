@@ -200,6 +200,38 @@ r.post('/', async (req, res) => {
 });
 
 /**
+ * GET /api/visits/my-open
+ * The logged-in user's visits still in progress, with how many of the
+ * location's boxes are already refilled: [{ _id, location, startedAt, boxesDone, boxesTotal }]
+ */
+r.get('/my-open', async (req, res) => {
+  try {
+    const visits = await Visit.find({ rep: req.user._id, status: 'open' })
+      .sort({ startedAt: -1 })
+      .populate('location', 'name')
+      .lean();
+    const rows = await Promise.all(visits.map(async v => {
+      const [boxes, refilled] = await Promise.all([
+        Box.find({ location: v.location?._id, ...ACTIVE_BOX }).select('_id').lean(),
+        Delivery.distinct('box', { visit: v._id })
+      ]);
+      const active = new Set(boxes.map(b => String(b._id)));
+      return {
+        _id: v._id,
+        location: v.location,
+        startedAt: v.startedAt,
+        boxesTotal: active.size,
+        boxesDone: refilled.filter(id => active.has(String(id))).length
+      };
+    }));
+    res.json(rows.filter(v => v.location));
+  } catch (e) {
+    console.error('My open visits failed:', e);
+    res.status(500).json({ error: 'Failed to load visits in progress' });
+  }
+});
+
+/**
  * GET /api/visits/recent-by-location?per=2
  * The latest `per` visits of every location in one request, for the Locations page.
  * Returns { [locationId]: [visit] }, newest first.

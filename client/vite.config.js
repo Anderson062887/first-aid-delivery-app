@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -79,7 +80,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:4000'
+      // DEMO_API=http://localhost:4790 points the dev server at the demo sandbox (server: npm run demo)
+      '/api': process.env.DEMO_API || 'http://localhost:4000'
     }
   }
 })

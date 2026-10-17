@@ -1,5 +1,5 @@
 // client/src/pages/NewDelivery.jsx
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { api, visitApi } from '../api'
 import ItemPicker from '../components/ItemPicker.jsx'
 import Cart from '../components/Cart.jsx'
@@ -60,6 +60,10 @@ export default function NewDelivery(){
   const [err, setErr] = useState('');
   const [showDraftBanner, setShowDraftBanner] = useState(hasDraft);
   const [loadingBoxes, setLoadingBoxes] = useState(false);
+  // Where the starting list came from: { source: 'last-refill'|'standard', date }
+  const [prefill, setPrefill] = useState(null);
+  const linesRef = useRef(lines);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
   const nav = useNavigate();
 
   // Save draft when form changes (debounced effect)
@@ -187,9 +191,29 @@ export default function NewDelivery(){
     return () => { cancelled = true; };
   }, [boxFixed, boxes, locationId, visitId]);
 
-  // 6) Add/remove lines
+  // 6) Start from what went into this box last time (or its standard contents),
+  //    so the rep only adjusts amounts. Skipped when a draft was restored or
+  //    items were already added; offline it just starts empty.
+  useEffect(() => {
+    if (!boxId || hasDraft) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.boxes.lastRefill(boxId);
+        // Don't overwrite anything the rep added while this was loading
+        if (cancelled || !res?.lines?.length || linesRef.current.length) return;
+        setLines(res.lines);
+        setPrefill({ source: res.source, date: res.date });
+      } catch { /* offline or not found: start empty */ }
+    })();
+    return () => { cancelled = true; };
+  }, [boxId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 7) Add/remove/change lines
   function addLine(l){ setLines(prev => [...prev, l]) }
   function removeLine(idx){ setLines(prev => prev.filter((_, i) => i !== idx)) }
+  function setQty(idx, quantity){ setLines(prev => prev.map((l, i) => i === idx ? { ...l, quantity } : l)) }
+  function clearLines(){ setLines([]); setPrefill(null); }
 
   // Clear draft and restore defaults
   async function discardDraft() {
@@ -207,7 +231,7 @@ export default function NewDelivery(){
     setShowDraftBanner(false);
   }
 
-  // 7) Submit delivery (online -> normal; offline -> queued by SW or manual queue)
+  // 8) Submit delivery (online -> normal; offline -> queued by SW or manual queue)
   async function submit() {
     setErr('');
 
@@ -254,12 +278,12 @@ export default function NewDelivery(){
       <Breadcrumbs items={visitId ? [
         { label: 'Locations', to: '/locations' },
         { label: 'Visit', to: `/visits/${visitId}` },
-        { label: 'New Delivery' }
+        { label: 'Refill box' }
       ] : [
         { label: 'Deliveries', to: '/deliveries' },
         { label: 'New Delivery' }
       ]} />
-      <h2>New Delivery {visitId && <small>(Visit)</small>}</h2>
+      <h2>{visitId ? 'Refill box' : 'New Delivery'}</h2>
 
       {showDraftBanner && (
         <div className="card notice info mb between">
@@ -268,6 +292,14 @@ export default function NewDelivery(){
         </div>
       )}
 
+      {/* From a visit the location and box are already chosen: just say where this goes */}
+      {visitId && boxFixed && boxId && locationId ? (
+        <div className="card refill-target">
+          <div><span className="hint">Location</span><div className="strong">{locations.find(l => l._id === locationId)?.name || '…'}</div></div>
+          <div><span className="hint">Box</span><div className="strong">{(() => { const b = boxes.find(x => x._id === boxId); return b ? `${b.label} (Size: ${b.size})` : '…'; })()}</div></div>
+          <div><span className="hint">Rep</span><div className="strong">{repName}</div></div>
+        </div>
+      ) : (
       <div className="card row responsive-3">
         <div>
           <label htmlFor="rep-name">Rep</label>
@@ -309,9 +341,22 @@ export default function NewDelivery(){
           </select>
         </div>
       </div>
+      )}
 
+      {prefill && lines.length > 0 && (
+        <div className="card notice info mb between">
+          <span>
+            {prefill.source === 'standard'
+              ? "Filled in with this box's standard contents."
+              : `Filled in from this box's last refill${prefill.date ? ` (${new Date(prefill.date).toLocaleDateString()})` : ''}.`}
+            {' '}Adjust the amounts, remove what you didn't use, or add more below.
+          </span>
+          <button className="btn" onClick={clearLines}>Start empty</button>
+        </div>
+      )}
+
+      <Cart lines={lines} items={items} onRemove={removeLine} onQtyChange={setQty} />
       <ItemPicker onAdd={(l) => { addLine(l); setErr(''); }} />
-      <Cart lines={lines} items={items} onRemove={removeLine} />
 
       {err && <div className="error mb">{err}</div>}
 

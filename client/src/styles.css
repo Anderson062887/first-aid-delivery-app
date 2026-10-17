@@ -96,6 +96,26 @@ header { display:flex; align-items:center; gap:var(--gap); padding: var(--pad); 
   .tab { padding: 10px 10px; }
 }
 
+/* − 3 + quantity control */
+.stepper { display: inline-flex; align-items: center; gap: 6px; }
+.stepper .btn { min-width: var(--tap); padding: 0; font-size: 20px; line-height: 1; }
+.stepper-value { min-width: 2.2em; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Items on a refill */
+.cart-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cart-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.cart-name { flex: 1 1 160px; min-width: 0; }
+.cart-controls { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.cart-total { min-width: 64px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.btn.cart-remove { min-width: var(--tap); padding: 0; }
+
+/* One-line summary of where this refill goes */
+.refill-target { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+/* Progress bar (visits in progress) */
+.progress { height: 8px; background: #e8ecf1; border-radius: 999px; overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+
 /* Colored notices (banners and callouts) */
 .notice { border: 1px solid; border-radius: 8px; padding: 10px 12px; }
 .card.notice { padding: var(--pad); }

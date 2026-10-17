@@ -1,5 +1,5 @@
 // client/src/pages/Visit.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, visitApi } from '../api';
 import Badge from '../components/Badge.jsx';
@@ -123,12 +123,17 @@ export default function Visit(){
   // All boxes covered only if each location box was refilled (saved or queued)
   const allCovered = boxes.length > 0 && boxes.every(b => isCovered(String(getBoxId(b))));
 
-  // Auto-select "completed" outcome when all boxes are filled
+  const anyCovered = boxes.some(b => isCovered(String(getBoxId(b))));
+
+  // Suggest the outcome from the boxes: all refilled -> completed, some -> partial.
+  // Once the rep picks one themselves, leave it alone.
+  const pickedByRep = useRef(false);
+  const suggested = allCovered ? 'completed' : anyCovered ? 'partial' : '';
   useEffect(() => {
-    if (allCovered && !outcome && !readonly) {
-      setOutcome('completed');
-    }
-  }, [allCovered, outcome, readonly]);
+    if (readonly || pickedByRep.current || !suggested) return;
+    if (visit?.outcome) return; // a saved outcome wins
+    setOutcome(suggested);
+  }, [suggested, readonly, visit?.outcome]);
 
   function handleSubmitClick() {
     setErr('');
@@ -251,7 +256,7 @@ export default function Visit(){
                   name="outcome"
                   checked={outcome === k}
                   disabled={disabled}
-                  onChange={() => setOutcome(k)}
+                  onChange={() => { pickedByRep.current = true; setOutcome(k); }}
                 />
                 <Badge kind={outcomeKind(k)}>{k.replace('_',' ')}</Badge>
               </label>

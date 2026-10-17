@@ -227,6 +227,8 @@ export const api = {
       return list;
     },
     one: (id) => http(`/boxes/${id}`),
+    // What to start a refill with: { source: 'last-refill'|'standard'|null, date, lines }
+    lastRefill: (id) => http(`/boxes/${id}/last-refill`),
     create: async (data) => {
       const result = await http('/boxes', { method: 'POST', body: JSON.stringify(data) });
       invalidateBoxesCache(data.location);
@@ -386,6 +388,9 @@ export const visitApi = {
 
   // Latest visits of every location in one request: { [locationId]: [visit] }
   recentByLocation: (per = 2) => http(`/visits/recent-by-location?per=${per}`),
+
+  // My visits still in progress, with boxes done / total
+  myOpen: () => http('/visits/my-open'),
 
   // Fetch a visit
   get: (id) => fetch(`/api/visits/${id}?t=${Date.now()}`, {

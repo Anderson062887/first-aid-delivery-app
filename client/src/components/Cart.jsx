@@ -5,8 +5,9 @@ import { useMemo } from 'react';
  *  - lines: [{ item: itemId, quantity: number, packaging: 'each'|'case', unitPrice?, lineTotal? }, ...]
  *  - items: full item list (array) OR itemsById map; we'll accept either
  *  - onRemove?: (index) => void
+ *  - onQtyChange?: (index, quantity) => void   (shows − / + buttons)
  */
-export default function Cart({ lines = [], items = [], onRemove }) {
+export default function Cart({ lines = [], items = [], onRemove, onQtyChange }) {
   // Normalize items param to a Map for lookups
   const itemsById = useMemo(() => {
     if (items instanceof Map) return items;
@@ -54,30 +55,38 @@ export default function Cart({ lines = [], items = [], onRemove }) {
 
   return (
     <div className="card stack-sm">
-      <div className="strong">Lines</div>
+      <div className="strong">Items for this box</div>
 
       {rows.length === 0 ? (
         <div className="dim">No items added yet.</div>
       ) : (
-        <table className="table items-table">
-          <thead>
-            <tr>
-              <th>Item</th><th>Pkg</th><th>Qty</th><th>Unit $</th><th>Total $</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((l, idx) => (
-              <tr key={idx}>
-                <td data-label="Item">{l.name}</td>
-                <td data-label="Pkg">{l.packaging}</td>
-                <td data-label="Qty">{l.qty}</td>
-                <td data-label="Unit $">{l.unitPrice.toFixed(2)}</td>
-                <td data-label="Total $">{l.lineTotal.toFixed(2)}</td>
-                <td><button className="btn" onClick={()=>onRemove(idx)}>Remove</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="cart-list">
+          {rows.map((l) => (
+            <li key={l.idx} className="cart-row">
+              <div className="cart-name">
+                <div className="strong">{l.name}</div>
+                <div className="hint">
+                  {l.packaging === 'case' ? 'Cases' : 'Single units'} · ${l.unitPrice.toFixed(2)} per {l.packaging === 'case' ? 'case' : 'unit'}
+                </div>
+              </div>
+              <div className="cart-controls">
+                {onQtyChange ? (
+                  <span className="stepper">
+                    <button type="button" className="btn" aria-label={`Fewer ${l.name}`}
+                      onClick={() => onQtyChange(l.idx, Math.max(1, l.qty - 1))} disabled={l.qty <= 1}>−</button>
+                    <span className="stepper-value" aria-live="polite">{l.qty}</span>
+                    <button type="button" className="btn" aria-label={`More ${l.name}`}
+                      onClick={() => onQtyChange(l.idx, l.qty + 1)}>+</button>
+                  </span>
+                ) : <span className="stepper-value">{l.qty}</span>}
+                <span className="cart-total">${l.lineTotal.toFixed(2)}</span>
+                {onRemove && (
+                  <button type="button" className="btn danger cart-remove" onClick={() => onRemove(l.idx)} aria-label={`Remove ${l.name}`}>✕</button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       {rows.length > 0 && (

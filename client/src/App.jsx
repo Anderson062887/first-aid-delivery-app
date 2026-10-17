@@ -1,6 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
 import NavBar from './components/NavBar.jsx';
 import Dashboard from './pages/Dashboard.jsx'
+import RepHome from './pages/RepHome.jsx'
+import { useAuth } from './auth/AuthContext.jsx'
 import Locations from './pages/Locations.jsx'
 import Boxes from './pages/Boxes.jsx'
 import Deliveries from './pages/Deliveries.jsx'
@@ -35,6 +37,12 @@ import OnlineSyncGate from './components/OnlineSyncGate.jsx';
 
 
 
+// Admins start on the dashboard; reps start on their work for the day
+function Home() {
+  const { user } = useAuth();
+  return (user?.roles || []).includes('admin') ? <Dashboard /> : <RepHome />;
+}
+
 export default function App(){
 
   useEffect(() => {
@@ -65,7 +73,8 @@ export default function App(){
         <Routes>
           <Route path="/login" element={<Login/>} />
                 <Route element={<ProtectedRoute />}>
-                  <Route path="/" element={<Dashboard/>} />
+                  <Route path="/" element={<Home/>} />
+                  <Route path="/dashboard" element={<Dashboard/>} />
                   <Route path="/locations" element={<Locations/>} />
                   <Route path="/boxes" element={<Boxes/>} />
                   <Route path="/deliveries" element={<Deliveries/>} />

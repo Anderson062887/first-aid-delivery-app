@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Box, { ACTIVE_BOX } from '../models/Box.js';
 import Location from '../models/Location.js';
 import Delivery from '../models/Delivery.js';
+import Item from '../models/Item.js';
 import { requireRoles } from '../middleware/auth.js';
 import { validIdParam } from '../middleware/validateIds.js';
 
@@ -36,6 +37,44 @@ r.get('/:id', async (req, res) => {
   } catch (e) {
     console.error('Get box failed:', e);
     res.status(500).json({ error: 'Failed to get box' });
+  }
+});
+
+/**
+ * GET /api/boxes/:id/last-refill
+ * What to start a refill of this box with: the items and amounts of its most
+ * recent refill, or else the box's standard contents (items with a par level).
+ * Items that are no longer active are left out.
+ * Returns { source: 'last-refill' | 'standard' | null, date, lines: [{ item, packaging, quantity }] }
+ */
+r.get('/:id/last-refill', async (req, res) => {
+  try {
+    const box = await Box.findById(req.params.id).lean();
+    if (!box) return res.status(404).json({ error: 'Box not found' });
+
+    let source = null, date = null, lines = [];
+    const last = await Delivery.findOne({ box: box._id }).sort({ deliveredAt: -1, _id: -1 }).lean();
+    if (last?.lines?.length) {
+      source = 'last-refill';
+      date = last.deliveredAt || last.createdAt;
+      lines = last.lines.map(l => ({ item: String(l.item), packaging: l.packaging, quantity: l.quantity }));
+    } else if (box.items?.some(i => i.par > 0)) {
+      source = 'standard';
+      const defs = await Item.find({ _id: { $in: box.items.map(i => i.item) } }).select('packaging').lean();
+      const pkg = new Map(defs.map(i => [String(i._id), i.packaging || 'each']));
+      lines = box.items.filter(i => i.par > 0)
+        .map(i => ({ item: String(i.item), packaging: pkg.get(String(i.item)) || 'each', quantity: i.par }));
+    }
+
+    if (lines.length) {
+      const active = new Set((await Item.find({ _id: { $in: lines.map(l => l.item) }, active: { $ne: false } })
+        .select('_id').lean()).map(i => String(i._id)));
+      lines = lines.filter(l => active.has(l.item));
+    }
+    res.json({ source: lines.length ? source : null, date, lines });
+  } catch (e) {
+    console.error('Last refill failed:', e);
+    res.status(500).json({ error: 'Failed to load the last refill' });
   }
 });
 
