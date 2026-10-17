@@ -70,7 +70,7 @@ export default function ItemEdit() {
         pricePerPack: Number(form.pricePerPack)
       });
       toast.success('Item updated successfully');
-      navigate('/items');
+      navigate('/settings/items');
     } catch (err) {
       setError(err.message);
       toast.error('Failed to update item');
@@ -88,7 +88,7 @@ export default function ItemEdit() {
     try {
       await api.items.delete(id);
       toast.success(`"${originalName}" deleted permanently`);
-      navigate('/items');
+      navigate('/settings/items');
     } catch (err) {
       toast.error(err.message || 'Failed to delete item');
     } finally {
@@ -100,7 +100,7 @@ export default function ItemEdit() {
     return (
       <div>
         <Breadcrumbs items={[
-          { label: 'Items', to: '/items' },
+          { label: 'Settings', to: '/settings' }, { label: 'Items', to: '/settings/items' },
           { label: 'Edit' }
         ]} />
         <h2>Edit Item</h2>
@@ -114,7 +114,7 @@ export default function ItemEdit() {
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Items', to: '/items' },
+        { label: 'Settings', to: '/settings' }, { label: 'Items', to: '/settings/items' },
         { label: `Edit: ${originalName}` }
       ]} />
       <h2>Edit Item</h2>

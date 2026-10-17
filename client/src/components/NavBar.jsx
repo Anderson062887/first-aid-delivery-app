@@ -15,15 +15,16 @@ function RoleNav() {
     <>
       {isAdmin ? (
         <>
-          <NavLink to="/items" className="btn">Items</NavLink>
-          <NavLink to="/reports" className="btn">Reports</NavLink>
+          <NavLink to="/" end className="btn">Dashboard</NavLink>
           <NavLink to="/locations" className="btn">Locations</NavLink>
           <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
-          <NavLink to="/users" className="btn">Users</NavLink>
+          <NavLink to="/reports" className="btn">Reports</NavLink>
+          <NavLink to="/settings" className="btn">Settings</NavLink>
           <QueueLink />
         </>
       ) : (
         <>
+          <NavLink to="/" end className="btn">Home</NavLink>
           <NavLink to="/locations" className="btn">Locations</NavLink>
           <NavLink to="/deliveries" className="btn">Deliveries</NavLink>
           <QueueLink />

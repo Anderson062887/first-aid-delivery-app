@@ -68,7 +68,7 @@ export default function LocationNew(){
         boxLabelPrefix: form.boxLabelPrefix
       });
       toast.success('Location created successfully');
-      nav('/locations');
+      nav('/settings/locations');
     } catch(e){
       setErr(String(e.message||e));
       toast.error('Failed to create location');
@@ -79,7 +79,8 @@ export default function LocationNew(){
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Locations', to: '/locations' },
+        { label: 'Settings', to: '/settings' },
+        { label: 'Locations', to: '/settings/locations' },
         { label: 'New Location' }
       ]} />
       <h2>New Location</h2>

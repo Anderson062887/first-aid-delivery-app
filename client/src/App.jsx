@@ -1,8 +1,11 @@
 import { Routes, Route } from 'react-router-dom'
+import MovedTo from './components/MovedTo.jsx'
 import NavBar from './components/NavBar.jsx';
 import Dashboard from './pages/Dashboard.jsx'
 import RepHome from './pages/RepHome.jsx'
 import LocationDetail from './pages/LocationDetail.jsx'
+import Settings from './pages/settings/Settings.jsx'
+import SettingsLocations from './pages/settings/SettingsLocations.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
 import Locations from './pages/Locations.jsx'
 import Boxes from './pages/Boxes.jsx'
@@ -87,13 +90,25 @@ export default function App(){
                   <Route path="/reports" element={<Reports/>} />
 
                   <Route element={<ProtectedRoute roles={['admin']} />}>
-                      <Route path="/items" element={<Items/>} />
-                      <Route path="/items/new" element={<ItemNew/>} />
-                      <Route path="/items/:id/edit" element={<ItemEdit/>} />
-                      <Route path="/users" element={<Users/>} />
-                      <Route path="/users/new" element={<UserNew/>} />
-                       <Route path="/locations/new" element={<LocationNew/>} />
-                       <Route path="/locations/:id/edit" element={<LocationEdit/>} />
+                      {/* Setup lives under Settings */}
+                      <Route path="/settings" element={<Settings/>} />
+                      <Route path="/settings/users" element={<Users/>} />
+                      <Route path="/settings/users/new" element={<UserNew/>} />
+                      <Route path="/settings/items" element={<Items/>} />
+                      <Route path="/settings/items/new" element={<ItemNew/>} />
+                      <Route path="/settings/items/:id/edit" element={<ItemEdit/>} />
+                      <Route path="/settings/locations" element={<SettingsLocations/>} />
+                      <Route path="/settings/locations/new" element={<LocationNew/>} />
+                      <Route path="/settings/locations/:id/edit" element={<LocationEdit/>} />
+
+                      {/* Old addresses (bookmarks) */}
+                      <Route path="/users" element={<MovedTo to="/settings/users" />} />
+                      <Route path="/users/new" element={<MovedTo to="/settings/users/new" />} />
+                      <Route path="/items" element={<MovedTo to="/settings/items" />} />
+                      <Route path="/items/new" element={<MovedTo to="/settings/items/new" />} />
+                      <Route path="/items/:id/edit" element={<MovedTo to="/settings/items/:id/edit" />} />
+                      <Route path="/locations/new" element={<MovedTo to="/settings/locations/new" />} />
+                      <Route path="/locations/:id/edit" element={<MovedTo to="/settings/locations/:id/edit" />} />
                   </Route>
   
                   <Route path="/visits/start" element={<VisitStart/>} />

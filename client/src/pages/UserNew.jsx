@@ -43,7 +43,7 @@ export default function UserNew(){
       if (roles.length === 0) { setErr('Select at least one role'); setSubmitting(false); return; }
       await usersApi.create({ name, email, password, roles, active: true });
       toast.success('User created successfully');
-      nav('/users');
+      nav('/settings/users');
     }catch(e){
       setErr(String(e.message||e));
       toast.error('Failed to create user');
@@ -54,7 +54,8 @@ export default function UserNew(){
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Users', to: '/users' },
+        { label: 'Settings', to: '/settings' },
+        { label: 'Users', to: '/settings/users' },
         { label: 'New User' }
       ]} />
       <div className="card form-card stack">

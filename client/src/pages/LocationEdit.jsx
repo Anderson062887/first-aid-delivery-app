@@ -72,7 +72,7 @@ export default function LocationEdit() {
         }
       });
       toast.success('Location updated successfully');
-      navigate('/locations');
+      navigate(`/locations/${id}`);
     } catch (err) {
       setError(err.message);
       toast.error('Failed to update location');
@@ -90,7 +90,7 @@ export default function LocationEdit() {
     try {
       await locationsApi.delete(id);
       toast.success(`"${originalName}" deleted permanently`);
-      navigate('/locations');
+      navigate('/settings/locations');
     } catch (err) {
       toast.error(err.message || 'Failed to delete location');
     } finally {
@@ -102,7 +102,7 @@ export default function LocationEdit() {
     return (
       <div>
         <Breadcrumbs items={[
-          { label: 'Locations', to: '/locations' },
+          { label: 'Settings', to: '/settings' }, { label: 'Locations', to: '/settings/locations' },
           { label: 'Edit' }
         ]} />
         <h2>Edit Location</h2>
@@ -116,7 +116,7 @@ export default function LocationEdit() {
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Locations', to: '/locations' },
+        { label: 'Settings', to: '/settings' }, { label: 'Locations', to: '/settings/locations' },
         { label: `Edit: ${originalName}` }
       ]} />
       <h2>Edit Location</h2>

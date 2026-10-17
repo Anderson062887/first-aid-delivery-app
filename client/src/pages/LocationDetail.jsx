@@ -63,7 +63,7 @@ export default function LocationDetail() {
       <div className="card stack-sm">
         <div className="between">
           <h2 className="m0">{loc.name}</h2>
-          {isAdmin && <Link className="btn" to={`/locations/${id}/edit`}>Edit location</Link>}
+          {isAdmin && <Link className="btn" to={`/settings/locations/${id}/edit`}>Edit location</Link>}
         </div>
         {fmtAddress(loc.address) && <div className="dim">{fmtAddress(loc.address)}</div>}
         <div className="hint">{lastVisitText(lastSubmitted ? new Date(lastSubmitted.date) : null)}</div>

@@ -3,12 +3,9 @@ import { api, visitApi } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import Skeleton from '../components/Skeleton.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
 import { byDue, lastVisitDate, lastVisitText } from '../visitDue.js';
 
 export default function Locations(){
-  const { user } = useAuth();
-  const isAdmin = !!user?.roles?.includes('admin');
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState([]);
@@ -84,7 +81,6 @@ export default function Locations(){
     <div>
       <div className="between">
         <h2>Locations</h2>
-        {isAdmin && <Link className="btn primary" to="/locations/new">+ New Location</Link>}
       </div>
 
       {/* <RepBar onChange={setRepId} /> */}

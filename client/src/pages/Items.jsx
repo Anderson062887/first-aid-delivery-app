@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { listItems } from '../api';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import { Link } from 'react-router-dom';
 import Skeleton from '../components/Skeleton.jsx';
 
@@ -27,9 +28,10 @@ export default function Items() {
 
   return (
     <div className="page items-page">
+      <Breadcrumbs items={[{ label: 'Settings', to: '/settings' }, { label: 'Items' }]} />
       <h2>Items</h2>
       <div style={{ marginBottom: 12, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Link className="btn primary" to="/items/new">+ New Item</Link>
+        <Link className="btn primary" to="/settings/items/new">+ New Item</Link>
         <input
           type="search"
           className="input"
@@ -65,7 +67,7 @@ export default function Items() {
               <td data-label="Price/Pack">${Number(i.pricePerPack).toFixed(2)}</td>
               <td data-label="Active">{i.active ? 'Yes' : 'No'}</td>
               <td>
-                <Link to={`/items/${i._id}/edit`} className="btn btn-sm">Edit</Link>
+                <Link to={`/settings/items/${i._id}/edit`} className="btn btn-sm">Edit</Link>
               </td>
             </tr>
           ))}

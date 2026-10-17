@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usersApi } from '../api';
 import Flash from '../components/Flash.jsx';
+import Breadcrumbs from '../components/Breadcrumbs.jsx';
 import { Link } from 'react-router-dom';
 import { useToast } from '../components/ToastContext.jsx';
 import { useConfirm } from '../components/ConfirmContext.jsx';
@@ -66,11 +67,12 @@ async function toggleRole(u, role){
 
   return (
     <div>
+      <Breadcrumbs items={[{ label: 'Settings', to: '/settings' }, { label: 'Users' }]} />
       <h2>Users</h2>
       {msg && <Flash>{msg}</Flash>}
       {err && <div className="error">{err}</div>}
       <div style={{margin:"20px 0"}}>
-        <Link to="/users/new" className='btn primary'>+ New User</Link>
+        <Link to="/settings/users/new" className='btn primary'>+ New User</Link>
       </div>
 
       <div className="card scroll-x">

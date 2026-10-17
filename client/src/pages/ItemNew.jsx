@@ -34,7 +34,7 @@ export default function ItemNew() {
         pricePerPack: Number(form.pricePerPack)
       });
       toast.success('Item created successfully');
-      navigate('/items');
+      navigate('/settings/items');
     } catch (err) {
       setError(err.message);
       toast.error('Failed to create item');
@@ -46,7 +46,8 @@ export default function ItemNew() {
   return (
     <div>
       <Breadcrumbs items={[
-        { label: 'Items', to: '/items' },
+        { label: 'Settings', to: '/settings' },
+        { label: 'Items', to: '/settings/items' },
         { label: 'New Item' }
       ]} />
       <h2>New Item</h2>
